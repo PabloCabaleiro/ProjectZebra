@@ -8,6 +8,8 @@ import bioformats as bf
 from PIL import Image as PILImage
 from tfgWeb.models import Serie, Image
 from xml import etree as et
+from tfgWeb import utils
+from django.contrib.auth.models import User
 
 VM_ON = False
 VM_KILLED = False
@@ -84,8 +86,9 @@ def get_sizes(reader):
     size_x = reader.getSizeX()
     size_y = reader.getSizeY()
     size_z = reader.getSizeZ()
+    size_c = reader.getSizeC()
     size_t = reader.getSizeT()
-    return size_x, size_y, size_z, size_t
+    return size_x, size_y, size_z, size_c, size_t
 
 def get_name(filename):
 
@@ -127,10 +130,19 @@ def get_z_rescaled_matrix(image5d, bf_reader, shape, sizesXYZ):  # Returns propo
 
 #Adding to BD
 
-def add_series(name, size_x, size_y, size_z, total_time):
-    serie = Serie.objects.get_or_create(name=name, x_size=size_x, y_size=size_y, z_size=size_z, total_times=total_time)[0]
+def add_series(name, size_x, size_y, size_z, size_c, total_time, admin):
+    serie = Serie.objects.get_or_create(name=name, x_size=size_x, y_size=size_y, z_size=size_z,c_size=size_c, total_times=total_time, owner = admin)[0]
     serie.save()
     return serie
+
+def add_admin():
+    try:
+        user = User.objects.create_user('default', 'admin@admin.com', 'defaultpass2')
+        user.save()
+        return user
+    except:
+        user = User.objects.get_by_natural_key(utils.ADMIN_NAME)
+        return user
 
 def add_image(serie,image,pos_z,time):
     im = Image.objects.get_or_create(serie=serie,image=image,pos_z=pos_z,time=time)[0]
@@ -154,6 +166,9 @@ def read_series(bf_reader, serieID=0, name="", RGBA=True):  # Reads a series
     # Checking VM
     check_VM()
 
+    #Adding default admin
+    admin = add_admin()
+
     # Checking values
     reader = bf_reader.rdr
     total_series = get_total_series(reader)
@@ -161,8 +176,8 @@ def read_series(bf_reader, serieID=0, name="", RGBA=True):  # Reads a series
         raise ValueError("Series number no valid")
     reader.setSeries(serieID)
 
-    size_x, size_y, size_z, total_times = get_sizes(reader=reader)
-    serie = add_series(name, size_x, size_y, size_z, total_times)
+    size_x, size_y, size_z, size_c, total_times = get_sizes(reader=reader)
+    serie = add_series(name, size_x, size_y, size_z, size_c+1, total_times, admin)
 
     # Getting the order and the initial shape of the array
     # order = reader.getDimensionOrder() #Obtains the 5D matrix: X,Y,Z, Channel and Time in order

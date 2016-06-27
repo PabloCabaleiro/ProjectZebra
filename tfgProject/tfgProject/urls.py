@@ -1,3 +1,5 @@
+from tfgWeb import views
+
 """tfgProject URL Configuration
 
 The `urlpatterns` list routes URLs to views. For more information please see:
@@ -20,4 +22,6 @@ from django.conf.urls import include
 urlpatterns = [
     url(r'^tfgWeb/', include('tfgWeb.urls')),
     url(r'^admin/', admin.site.urls),
+    url(r'^register/$',views.register, name='register'),
+    url(r'^login/$', views.user_login, name='login'),
 ]

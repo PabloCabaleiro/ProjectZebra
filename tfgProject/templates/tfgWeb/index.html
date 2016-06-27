@@ -1,20 +1,33 @@
 <!DOCTYPE html>
 {% load staticfiles %}
-
 <html>
     <head>
-        <title>tfgWeb</title>
+        <title>tfgProject</title>
     </head>
     <body>
-        <h1>k pasa lokers!</h1>
+        <h1>tfgProject!</h1>
+
         <div>
-            Como andamios? <br />
-            <strong>{{ boldmessage }}</strong><br />
+            {% if series %}
+                series dispoñibles:  <br />
+                {% for serie in series %}
+                    <li>{{ serie.name }}</li>
+                {% endfor %}
+            {% endif %}
         </div>
         <div>
-            <a href="/tfgWeb/about/">About</a><br />
-            <img src="{% static "images/random.png" %}"
-            alt="Picture of Rango" />
+            nome da serie:  <br />
+            <strong> {{ serie_selected.name }}</strong><br />
+        </div>
+        <div>
+            x = {{ pos_x }}  <br />
+            y = {{ pos_y }}  <br />
+            z = {{ pos_z }}  <br />
+        </div>
+        <div>
+            <img src={{ front_image }} alt="Front image" />
+            <img src={{ top_image }} alt="Top image" />
+            <img src={{ side_image }} alt="Side image" />
         </div>
     </body>
 </html>
