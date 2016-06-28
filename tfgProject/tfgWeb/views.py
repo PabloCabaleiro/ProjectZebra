@@ -9,20 +9,12 @@ from django.core.urlresolvers import reverse
 from tfgWeb.forms import UserForm, UserProfileForm
 from django.contrib.auth.models import User
 from PIL import Image as PILImage
+from tfgWeb.forms import InfoForm
 
 def index(request):
 
     context_dict = {}
 
-    pos_x = 500
-    pos_y = 500
-    pos_z = 30
-    time = 0
-
-    context_dict['pos_x'] = pos_x
-    context_dict['pos_y'] = pos_y
-    context_dict['pos_z'] = pos_z
-    context_dict['time'] = time
     try:
         user = request.user
     except:
@@ -31,17 +23,54 @@ def index(request):
         series_list = Serie.objects.filter(Q(owner=user) | Q(owner=User.objects.get_by_natural_key(utils.ADMIN_NAME)))
         context_dict['series'] = list(series_list)
 
-        serie = series_list[0]  #Pillamos serie arbitraria
-        matrix5d = get_matrix(serie.id)
-        context_dict['serie_selected'] = serie
+        if request.method == 'POST':
 
-        front_image = utils.get_front_image(image5d=matrix5d,pos_y=pos_y,time=time, user=user.username)
-        top_image = utils.get_top_image(image5d=matrix5d, pos_z=pos_z, time=time, user=user.username)
-        side_image = utils.get_side_image(image5d=matrix5d, pos_x=pos_x, time=time, user=user.username)
+            info_form = InfoForm(request.POST)
 
-        context_dict['front_image'] = '/' + front_image
-        context_dict['top_image'] = '/' + top_image
-        context_dict['side_image'] = '/' + side_image
+            if (info_form.is_valid()):
+
+                serieID = int(info_form.cleaned_data['serie'])
+                for serie in list(series_list):
+                    if serie.id == serieID:
+                        selected_serie = serie
+                        break
+
+
+                pos_x = info_form.cleaned_data['pos_x']
+                pos_y = info_form.cleaned_data['pos_y']
+                pos_z = info_form.cleaned_data['pos_z']
+                time = info_form.cleaned_data['time']
+
+                context_dict['pos_x'] = pos_x
+                context_dict['pos_y'] = pos_y
+                context_dict['pos_z'] = pos_z
+                context_dict['time'] = time
+                selected_serie.total_times -= 1
+                context_dict['selected_serie'] = selected_serie
+
+                matrix5d = get_matrix(serieID)
+                shape = np.shape(matrix5d)
+                context_dict['size_x'] = np.round(shape[0]/3)
+                context_dict['size_y'] = np.round(shape[1]/3)
+                context_dict['size_z'] = np.round(shape[2]/3)
+
+                front_image = utils.get_front_image(image5d=matrix5d,pos_y=pos_y,time=time, user=user.username)
+                top_image = utils.get_top_image(image5d=matrix5d, pos_z=pos_z, time=time, user=user.username)
+                side_image = utils.get_side_image(image5d=matrix5d, pos_x=pos_x, time=time, user=user.username)
+
+                context_dict['front_image'] = '/' + front_image
+                context_dict['top_image'] = '/' + top_image
+                context_dict['side_image'] = '/' + side_image
+        else:
+            context_dict['front_image'] = None
+            context_dict['top_image'] = None
+            context_dict['side_image'] = None
+            context_dict['pos_x'] = 0
+            context_dict['pos_y'] = 0
+            context_dict['pos_z'] = 0
+            context_dict['time'] = 0
+            series_list[0].total_times -= 1
+            context_dict['selected_serie'] = series_list[0]
 
     except Exception as e:
         print e.message
@@ -49,11 +78,11 @@ def index(request):
         context_dict['front_image'] = None
         context_dict['top_image'] = None
         context_dict['side_image'] = None
-        context_dict['serie_name'] = None
-        context_dict['pos_x'] = None
-        context_dict['pos_y'] = None
-        context_dict['pos_z'] = None
-        context_dict['time'] = None
+        context_dict['pos_x'] = 0
+        context_dict['pos_y'] = 0
+        context_dict['pos_z'] = 0
+        context_dict['time'] = 0
+        context_dict['selected_serie'] = series_list[0]
 
     return render(request, 'tfgWeb/index.html', context=context_dict)
 
