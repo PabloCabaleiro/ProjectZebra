@@ -6,25 +6,43 @@
     </head>
     <body>
         <h1>tfgProject!</h1>
-
         <div>
-            <form id="info_form" method="post" action="/tfgWeb/">
+            <form id="upload_form" method="post" action="/tfgWeb/" enctype= multipart/form-data>
                 {% csrf_token %}
-                {% if series %}
+                {{ upload_form.file }}
+                <input type="submit" value="upload" />
+            </form>
+        </div>
+        <br>
+        <div>
+            {% if series %}
+                <form id="info_form" method="post" action="/tfgWeb/">
+                    {% csrf_token %}
                     Series:
                     <select name="serie" >
                         {% for serie in series %}
                             <option value={{ serie.id }} {% if serie.id == selected_serie.id %}selected{% endif %}> {{ serie.name }} </option>
                         {% endfor %}
                     </select>
-                {% endif %}
-                Time:
-                <input name="time" type="number" size="5" value= {{ time }} max= {{ selected_serie.total_times }} min="0" />
-                x = <input type="text" name="pos_x" value= {{ pos_x }}  size="5" />
-                y = <input title="y" type="text" name="pos_y" value={{ pos_y }} size="5" />
-                z = <input title="z" type="text" name="pos_z" value={{ pos_z }} size="5" />
-                <input type="submit" value="actualizar" />
-            </form>
+                    Atlas:
+                    <select name="atlas" >
+                        {% for atlas in atlas_list %}
+                            <option value={{ atlas.id }} {% if atlas.id == selected_atlas.id %}selected{% endif %}> {{ atlas.name }} </option>
+                        {% endfor %}
+                    </select>
+                    Calidad:
+                    <select name="muestra" >
+                        {% for muestra in muestras %}
+                            <option value={{ muestra}} {% if muestra == muestra_atlas %}selected{% endif %}> {{ muestra }} </option>
+                        {% endfor %}
+                    </select>
+                    Time: <input name="time" type="number" size="5" value= {{ time }} max= {{ selected_serie.total_times }} min="0" />
+                    x = <input type="text" name="pos_x" value= {{ pos_x }}  size="5" />
+                    y = <input title="y" type="text" name="pos_y" value={{ pos_y }} size="5" />
+                    z = <input title="z" type="text" name="pos_z" value={{ pos_z }} size="5" />
+                    <input type="submit" value="actualizar" />
+                </form>
+            {% endif %}
         </div>
         <br>
         <div>
