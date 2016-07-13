@@ -3,17 +3,12 @@
 {% load staticfiles %}
 
 <html>
+
+    <title>tfgWeb</title>
+
     <head>
-        <title>
-            tfgWeb -
-            {% block title_block %}
-                {% if user.is_authenticated %}
-                    howdy {{ user.username }}!
-                {% else %}
-                    hey there partner!
-                {% endif %}
-            {% endblock %}
-        </title>
+        {% block title_block %}
+        {% endblock %}
     </head>
     <body>
         <div>
@@ -21,12 +16,5 @@
             {% endblock %}
             </div>
         <hr />
-        <div>
-            <ul>
-            <li><a href="/tfgWeb/">Homepage</a></li>
-            <li><a href="/login/">Login</a><li>
-            <li><a href="/register/">Register</a><li>
-            </ul>
-        </div>
     </body>
 </html>

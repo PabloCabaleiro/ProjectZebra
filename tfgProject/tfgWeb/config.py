@@ -22,3 +22,9 @@ RESOLUTIONS = {
     'MEDIUM': 2,
     'LOW':3,
 }
+
+AXIS = {
+    'X': 0,
+    'Y': 1,
+    'Z': 2,
+}

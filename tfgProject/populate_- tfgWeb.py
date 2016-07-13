@@ -7,7 +7,7 @@ import numpy as np
 import javabridge as jv
 import bioformats as bf
 from PIL import Image as PILImage
-from tfgWeb.models import Serie, Image, Atlas, AtlasImage
+from tfgWeb.models import Galery, Image
 from xml import etree as et
 from tfgWeb import utils, config
 from django.contrib.auth.models import User
@@ -133,13 +133,13 @@ def get_z_rescaled_matrix(image5d, bf_reader, shape, sizesXYZ):  # Returns propo
 
 #Adding to BD
 
-def add_series(name, size_x, size_y, size_z, total_time, admin):
-    serie = Serie.objects.get_or_create(name=name, x_size=size_x, y_size=size_y, z_size=size_z, total_times=total_time, owner = admin)[0]
-    serie.save()
-    return serie
+def add_series(name, size_x, size_y, size_z, total_time, user):
+    galery = Galery.objects.get_or_create(name=name, x_size=size_x, y_size=size_y, z_size=size_z, total_times=total_time, owner = user, is_atlas = False)[0]
+    galery.save()
+    return galery
 
 def add_atlas(name, size_x, size_y, size_z):
-    atlas = Atlas.objects.get_or_create(name=name, x_size=size_x, y_size=size_y, z_size=size_z)[0]
+    atlas = Galery.objects.get_or_create(name=name, x_size=size_x, y_size=size_y, z_size=size_z, total_times=1, owner = None, is_atlas = True)[0]
     atlas.save()
     return atlas
 
@@ -154,11 +154,6 @@ def add_admin():
 
 def add_image(serie,image,pos_z,time):
     im = Image.objects.get_or_create(serie=serie,image=image,pos_z=pos_z,time=time)[0]
-    im.save()
-    return im
-
-def add_atlas_image(atlas,image,pos_z):
-    im = AtlasImage.objects.get_or_create(atlas=atlas,image=image,pos_z=pos_z)[0]
     im.save()
     return im
 
@@ -197,27 +192,45 @@ def read_series(bf_reader, serieID=0, name=""):  # Reads a series
     shape = [getattr(reader, "getSize" + s)() for s in order]  # Contains the 5D matrix sizes in order
 
     resolutions = config.RESOLUTIONS.items()
+    axis_list = config.AXIS.items()
     print " -Getting matrix"
     matrix = utils.get_matrix(bf_reader,shape,serieID)
 
     for resolution in resolutions:
-        muestra = serie.add_muestra(resolution[0],resolution[1])
+
+        muestra = serie.add_sample(resolution[0],resolution[1])
         print " -Almacenado muestra " + str(muestra.__str__())
-        rescaled_matrix = utils.rescale_matrix(matrix,resolution[1])
+
+        if resolution[1] != 1:
+            rescaled_matrix = utils.rescale_matrix(matrix, resolution[1])
+        else:
+            rescaled_matrix = matrix
+
         rescaled_shape = np.shape(rescaled_matrix)
 
-        for time in range(0, shape[4]):
-            for pos_z in range(0, rescaled_shape[2]):
-                image = PILImage.fromarray(rescaled_matrix[:,:,pos_z,:,time].astype('uint8'))
-                path = config.IMAGES_PATH + str(admin.id) + '/' + name + '/' + muestra.name + '/'
-                if not os.path.exists(path):
-                    os.makedirs(path)
-                image_path = path + str(pos_z) + '-' + str(time) + config.TYPE
-                print '         -' + image_path
-                image.save(image_path)
-                image.close()
+        for axis in axis_list:
+            print "     -Almacenando axis " + axis[0]
+            axis_model = muestra.add_axis(axis[0])
 
-                muestra.add_image(image_path, pos_z, time)
+            for time in range(0, shape[4]):
+                for pos in range(0, rescaled_shape[axis[1]]):
+                    if axis[1]==0:
+                        image = PILImage.fromarray(rescaled_matrix[pos, :, :, :, time].astype('uint8'))
+                    elif axis[1]==1:
+                        image = PILImage.fromarray(rescaled_matrix[:, pos, :, :, time].astype('uint8'))
+                    elif axis[1]==2:
+                        image = PILImage.fromarray(rescaled_matrix[:, :, pos, :, time].astype('uint8'))
+
+                    path = config.IMAGES_PATH + str(admin.id) + '/' + name + '/' + muestra.name + '/'  + axis[0] + '/'
+
+                    if not os.path.exists(path):
+                        os.makedirs(path)
+                    image_path = path + str(pos) + '-' + str(time) + config.TYPE
+                    print '         -' + image_path
+                    image.save(image_path)
+                    image.close()
+
+                    axis_model.add_image(image_path, pos, time)
 
     gc.collect()
 
@@ -233,67 +246,48 @@ def save_h5(filename):
                 dataset = hf['/' + group_key + '/' + dataset_key]
                 atlas = dataset[:, :, :]
                 shape = np.shape(atlas)
-                print shape
 
-                atlas_model = add_atlas(dataset_key, shape[0], shape[1], shape[2])
+                atlas_model = add_atlas(name=dataset_key, size_x=shape[0], size_y=shape[1], size_z=shape[2])
 
                 resolutions = config.RESOLUTIONS.items()
+                axis_list = config.AXIS.items()
+
 
                 for resolution in resolutions:
                     print '     -Rescalando matriz con resolucion ' + str(resolution[1])
-                    muestra = atlas_model.add_muestra(resolution[0],resolution[1])
+                    muestra = atlas_model.add_sample(resolution[0],resolution[1])
 
                     if (resolution[1]==1):
-                        rescaled_atlas = atlas
                         rescaled_shape = shape
                     else:
-                        rescaled_shape = [np.round(shape[0] / resolution[1]), np.round(shape[1] / resolution[1]),
-                                              np.round(shape[2] / resolution[1]), 4]
-                        if (shape[0]>shape[2]):
-                            aux_shape = [np.round(shape[0] / resolution[1]), np.round(shape[1] / resolution[1]),
-                                         shape[2], 4]
-                            aux_atlas = np.empty(aux_shape)
-                            rescaled_atlas = np.empty(rescaled_shape)
-                            for z in range(0, shape[2]):
-                                image = PILImage.fromarray(atlas[:, :, z,:].astype('uint8'))
-                                image = image.resize((rescaled_shape[1],rescaled_shape[0]), PILImage.LANCZOS)
-                                aux_atlas[:,:,z,:] = image
-                            for x in range(0,rescaled_shape[0]):
-                                image = PILImage.fromarray(aux_atlas[x, :, :,:].astype('uint8'))
-                                image = image.resize((rescaled_shape[2], rescaled_shape[1]), PILImage.LANCZOS)
-                                rescaled_atlas[x,:,:,:] = image.convert('RGBA')
-                        else:
-                            aux_shape = [shape[0], np.round(shape[1] / resolution[1]), np.round(shape[2]/resolution[1]),4]
-                            aux_atlas = np.empty(aux_shape)
-                            rescaled_atlas = np.empty(rescaled_shape)
-                            for x in range(0, shape[0]):
-                                image = PILImage.fromarray(atlas[x, :, :].astype('uint8'))
-                                image = image.resize((rescaled_shape[2], rescaled_shape[1]), PILImage.LANCZOS)
-                                aux_atlas[x, :, :, :] = image.convert('RGBA')
-                            for z in range(0,rescaled_shape[2]):
-                                image = PILImage.fromarray(aux_atlas[:, :, z, :].astype('uint8'))
-                                image = image.resize((rescaled_shape[1], rescaled_shape[0]), PILImage.LANCZOS)
-                                rescaled_atlas[:, :, z, :] = image.convert('RGBA')
+                        rescaled_shape = (np.round(shape[0] / resolution[1]), np.round(shape[1] / resolution[1]),
+                                              np.round(shape[2] / resolution[1]))
 
-                    for z in range(0, rescaled_shape[2]):
-                        if resolution[1]==1:
-                            image = PILImage.fromarray(rescaled_atlas[:, :, z].astype('uint8')).convert('RGBA')
-                        else:
-                            image = PILImage.fromarray(rescaled_atlas[:, :, z,:].astype('uint8')).convert('RGBA')
+                        atlas.resize(rescaled_shape)
 
-                        path = config.ATLAS_PATH + dataset_key + '/' + resolution[0] +'/'
-                        if not os.path.exists(path):
-                            os.makedirs(path)
-                        image_path = path + str(z) + config.TYPE
-                        image.save(image_path)
-                        print '         -' + image_path
-                        muestra.add_image(image_path,z)
-                        image.close()
+                    for axis in axis_list:
+                        axis_model = muestra.add_axis(name=axis[0])
+
+                        for pos in range(0, rescaled_shape[axis[1]]):
+                            if axis[1] == 0:
+                                image = PILImage.fromarray(atlas[pos, :, :].astype('uint8')).convert('RGBA')
+                            elif axis[1] == 1:
+                                image = PILImage.fromarray(atlas[:, pos, :].astype('uint8')).convert('RGBA')
+                            elif axis[1] == 2:
+                                image = PILImage.fromarray(atlas[:, :, pos].astype('uint8')).convert('RGBA')
+
+                            path = config.ATLAS_PATH + dataset_key + '/' + resolution[0] +'/' + axis[0] + '/'
+                            if not os.path.exists(path):
+                                os.makedirs(path)
+                            image_path = path + str(pos) + config.TYPE
+                            image.save(image_path)
+                            print '         -' + image_path
+                            axis_model.add_image(image_path,pos,0)
+                            image.close()
     gc.collect()
 
 #Populate function
 def populate(filename):
-
 
     # Checking VM
     check_VM()

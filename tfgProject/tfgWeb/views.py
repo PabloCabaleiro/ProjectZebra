@@ -1,13 +1,11 @@
 from django.shortcuts import render
-from tfgWeb.models import Serie, Image, Atlas, AtlasImage, Muestra
+from tfgWeb import models
 from tfgWeb import utils, config
-import numpy as np
-from django.db.models import Q
-from django.contrib.auth import authenticate, login
+from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth.decorators import login_required
 from django.http import HttpResponseRedirect, HttpResponse
 from django.core.urlresolvers import reverse
 from tfgWeb.forms import UserForm, UserProfileForm
-from django.contrib.auth.models import User
 from tfgWeb.forms import InfoForm, UploadForm
 
 def index(request):
@@ -18,93 +16,86 @@ def index(request):
         user = request.user
     except:
         user = None
-    try:
-        if user.is_anonymous():
-            series_list = Serie.objects.filter(Q(owner=User.objects.get_by_natural_key(config.ADMIN_NAME)))
-        else:
-            series_list = Serie.objects.filter(Q(owner=user) | Q(owner=User.objects.get_by_natural_key(config.ADMIN_NAME)))
-        atlas_list = Atlas.objects.filter()
-        muestras_list = config.RESOLUTIONS.keys()
 
-        context_dict['series'] = list(series_list)
-        context_dict['atlas_list'] = list(atlas_list)
-        context_dict['muestras'] = muestras_list
+    series_list = list(models.get_series(user))
+    atlas_list = list(models.get_atlas())
+    samples_list = config.RESOLUTIONS.keys()
 
-        if request.method == 'POST':
+    context_dict['series'] = series_list
+    context_dict['atlas_list'] = atlas_list
+    context_dict['muestras'] = samples_list
 
-            info_form = InfoForm(request.POST)
-            upload_form = UploadForm(request.POST, request.FILES)
+    if request.method == 'POST':
 
-            if (info_form.is_valid()):
+        info_form = InfoForm(request.POST)
+        upload_form = UploadForm(request.POST, request.FILES)
 
-                serieID = int(info_form.cleaned_data['serie'])
-                for serie in list(series_list):
-                    if serie.id == serieID:
-                        selected_serie = serie
-                        break
+        if (info_form.is_valid()):
 
-                atlasID = int(info_form.cleaned_data['atlas'])
-                for atlas in list(atlas_list):
-                    if atlas.id == atlasID:
-                        selected_atlas = atlas
-                        break
+            serieID = int(info_form.cleaned_data['serie'])
+            for serie in series_list:
+                if serie.id == serieID:
+                    selected_serie = serie
+                    context_dict['selected_serie'] = selected_serie
+                    break
 
-                pos_x = info_form.cleaned_data['pos_x']
-                pos_y = info_form.cleaned_data['pos_y']
-                pos_z = info_form.cleaned_data['pos_z']
-                time = info_form.cleaned_data['time']
+            atlasID = int(info_form.cleaned_data['atlas'])
+            for atlas in atlas_list:
+                if atlas.id == atlasID:
+                    selected_atlas = atlas
+                    context_dict['selected_atlas'] = selected_atlas
+                    break
 
-                selected_muestra = info_form.cleaned_data['muestra']
-                muestra = selected_serie.get_muestra(selected_muestra)
-                matrix = muestra.get_matrix(time)
+            pos_x = info_form.cleaned_data['pos_x']
+            pos_y = info_form.cleaned_data['pos_y']
+            pos_z = info_form.cleaned_data['pos_z']
+            time = info_form.cleaned_data['time']
+            selected_sample = info_form.cleaned_data['muestra']
+            sample = selected_serie.get_sample(selected_sample)
+            context_dict['size_x'] = sample.x_size
+            context_dict['size_y'] = sample.y_size
+            context_dict['size_z'] = sample.z_size
+            context_dict['selected_muestra'] = selected_sample
 
-                """if not request.session.get('serie_name')==selected_serie.name:
-                    matrix5d = get_matrix(serieID)
-                    request.session['matrix'] = matrix5d
-                    request.session['serie_name'] = selected_serie.name
-                    print request.session.get('serie_name')
-                else:
-                    matrix5d = request.session['matrix']"""
+            front_image = selected_serie.get_image(selected_sample,'Z', pos_z, time)
+            side_image = selected_serie.get_image(selected_sample, 'Y', pos_y, time)
+            top_image = selected_serie.get_image(selected_sample, 'X', pos_x, time)
 
+            context_dict['front_image'] = '/' + front_image
+            context_dict['top_image'] = '/' + top_image
+            context_dict['side_image'] = '/' + side_image
 
-                context_dict['pos_x'] = pos_x
-                context_dict['pos_y'] = pos_y
-                context_dict['pos_z'] = pos_z
-                context_dict['time'] = time
-                selected_serie.total_times -= 1
-                context_dict['selected_serie'] = selected_serie
-                context_dict['selected_atlas'] = selected_atlas
-                context_dict['selected_muestra'] = selected_muestra
+            front_atlas = selected_atlas.get_image(selected_sample,'Z', pos_z, 0)
+            side_atlas = selected_atlas.get_image(selected_sample, 'Y', pos_y, 0)
+            top_atlas = selected_atlas.get_image(selected_sample, 'X', pos_x, 0)
 
-                shape = np.shape(matrix)
-                context_dict['size_x'] = np.round(shape[0]/3)
-                context_dict['size_y'] = np.round(shape[1]/3)
-                context_dict['size_z'] = np.round(shape[2]/3)
+            context_dict['front_atlas'] = '/' + front_atlas
+            context_dict['top_atlas'] = '/' + top_atlas
+            context_dict['side_atlas'] = '/' + side_atlas
 
-                front_image = utils.get_front_image(image5d=matrix,pos_y=pos_y,time=time, user=user.username)
-                top_image = utils.get_top_image(image5d=matrix, pos_z=pos_z, time=time, user=user.username)
-                side_image = utils.get_side_image(image5d=matrix, pos_x=pos_x, time=time, user=user.username)
+            context_dict['pos_x'] = pos_x
+            context_dict['pos_y'] = pos_y
+            context_dict['pos_z'] = pos_z
+            context_dict['time'] = time
+            context_dict['total_times'] = selected_serie.total_times - 1
+            context_dict['upload_form'] = UploadForm()
 
-                context_dict['front_image'] = '/' + front_image
-                context_dict['top_image'] = '/' + top_image
-                context_dict['side_image'] = '/' + side_image
+        if (upload_form.is_valid()):
 
-            if (upload_form.is_valid()):
-                path = request.FILES['file'].temporary_file_path()
-                context_dict['upload_form'] = upload_form
+            path = request.FILES['file'].temporary_file_path()
 
-                file = request.FILES['file']
-                parts = file.name.split('.')
-                if (len(parts)==1):
-                    raise ValueError("Type not allowed")
-                elif (parts[len(parts)-1]=='lif'):
-                    utils.save_lif(path, request.user)
-                elif (parts[len(parts) - 1] == 'h5'):
-                    utils.save_h5(path, request.user)
-            else:
-                print upload_form.errors
-                context_dict['upload_form'] = UploadForm()
-        else:
+            context_dict['upload_form'] = upload_form
+
+            file = request.FILES['file']
+            parts = file.name.split('.')
+
+            if (len(parts)==1):
+                raise ValueError("Type not allowed")
+            elif (parts[len(parts)-1]=='lif'):
+                utils.save_lif(path, request.user)
+            elif (parts[len(parts) - 1] == 'h5'):
+                utils.save_h5(path, request.user)
+
             context_dict['front_image'] = None
             context_dict['top_image'] = None
             context_dict['side_image'] = None
@@ -116,14 +107,20 @@ def index(request):
                 series_list[0].total_times -= 1
                 context_dict['selected_serie'] = series_list[0]
             context_dict['upload_form'] = UploadForm()
-
-    except Exception as e:
-        print e.message
-        context_dict['series'] = None
+        else:
+            context_dict['upload_form'] = UploadForm()
+    else:
         context_dict['front_image'] = None
         context_dict['top_image'] = None
         context_dict['side_image'] = None
-        context_dict['selected_serie'] = None
+        context_dict['pos_x'] = 0
+        context_dict['pos_y'] = 0
+        context_dict['pos_z'] = 0
+        context_dict['time'] = 0
+        if series_list:
+            series_list[0].total_times -= 1
+            context_dict['selected_serie'] = series_list[0]
+        context_dict['upload_form'] = UploadForm()
 
     return render(request, 'tfgWeb/index.html', context=context_dict)
 
@@ -166,3 +163,8 @@ def user_login(request):
             return HttpResponse("Invalid login details supplied.")
     else:
         return render(request, 'tfgWeb/login.html', {})
+
+@login_required
+def user_logout(request):
+    logout(request)
+    return HttpResponseRedirect(reverse('index'))

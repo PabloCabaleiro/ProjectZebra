@@ -1,22 +1,35 @@
 <!DOCTYPE html>
+{% extends "tfgWeb/base.html" %}
 {% load staticfiles %}
-<html>
-    <head>
-        <title>tfgProject</title>
-    </head>
-    <body>
+
+{% block title_block %}
+    <div>
         <h1>tfgProject!</h1>
+        {% if request.user.is_authenticated %}
+            Welcome, '{{ request.user.username }}'
+            <li><a href="/logout/">Log out</a></li>
+        {% else %}
+            <li><a href="/register/">Register</a></li>
+            <li><a href="/login/">Login</a></li>
+        {% endif %}
+        <br/>
+    </div>
+{% endblock %}
+
+{% block body_block %}
         <div>
-            <form id="upload_form" method="post" action="/tfgWeb/" enctype= multipart/form-data>
-                {% csrf_token %}
-                {{ upload_form.file }}
-                <input type="submit" value="upload" />
-            </form>
+            {% if request.user.is_authenticated %}
+                <form id="upload_form" method="post" action="/tfgWeb/" enctype= multipart/form-data>
+                    {% csrf_token %}
+                    {{ upload_form.file }}
+                    <input type="submit" value="upload" />
+                </form>
+                <br>
+            {% endif %}
         </div>
-        <br>
         <div>
             {% if series %}
-                <form id="info_form" method="post" action="/tfgWeb/">
+                <form id="info_form" method="post" action="/tfgWeb/" enctype= multipart/form-dat>
                     {% csrf_token %}
                     Series:
                     <select name="serie" >
@@ -47,14 +60,14 @@
         <br>
         <div>
             {% if front_image %}
-                <img title="Front image" src={{ front_image }} height= {{ size_z }} width= {{ size_x }} />
+                <img title="Front image" src={{ front_image }} />
             {% endif %}
             {% if top_image %}
-                <img title="Top image" src={{ top_image }} height= {{ size_y }} width= {{ size_x }} />
+                <img title="Top image" src={{ top_image }} />
             {% endif %}
             {% if side_image %}
-                <img title="Side image" src={{ side_image }} height= {{ size_z }} width= {{ size_y }} />
+                <img title="Side image" src={{ side_image }} />
             {% endif %}
+
         </div>
-    </body>
-</html>
+{% endblock %}
