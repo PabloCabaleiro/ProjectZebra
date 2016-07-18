@@ -7,7 +7,7 @@ import numpy as np
 import javabridge as jv
 import bioformats as bf
 from PIL import Image as PILImage
-from tfgWeb.models import Galery, Image
+from tfgWeb.models import Galery, Image, Experiment
 from xml import etree as et
 from tfgWeb import utils, config
 from django.contrib.auth.models import User
@@ -131,17 +131,17 @@ def get_z_rescaled_matrix(image5d, bf_reader, shape, sizesXYZ):  # Returns propo
 
     return rescaled_image5d
 
+def get_name_experiment(filename):
+    parts = filename.split('/')
+    size = len(parts)
+    name = parts[size-1].split(('.'))[0]
+    return name
+
 #Adding to BD
 
-def add_series(name, size_x, size_y, size_z, total_time, user):
-    galery = Galery.objects.get_or_create(name=name, x_size=size_x, y_size=size_y, z_size=size_z, total_times=total_time, owner = user, is_atlas = False)[0]
-    galery.save()
-    return galery
-
-def add_atlas(name, size_x, size_y, size_z):
-    atlas = Galery.objects.get_or_create(name=name, x_size=size_x, y_size=size_y, z_size=size_z, total_times=1, owner = None, is_atlas = True)[0]
-    atlas.save()
-    return atlas
+def add_experiment(name, info, user, is_atlas):
+    experiment = Experiment.objects.get_or_create(owner=user, name=name, info= info, is_atlas=is_atlas)[0]
+    return experiment
 
 def add_admin():
     try:
@@ -158,7 +158,7 @@ def add_image(serie,image,pos_z,time):
     return im
 
 #Reading Series
-def read_series(bf_reader, serieID=0, name=""):  # Reads a series
+def read_series(experiment, bf_reader, serieID=0, name=""):  # Reads a series
 
     """
         Input:
@@ -184,7 +184,6 @@ def read_series(bf_reader, serieID=0, name=""):  # Reads a series
     reader.setSeries(serieID)
 
     size_x, size_y, size_z, size_c, total_times = get_sizes(reader=reader)
-    serie = add_series(name, size_x, size_y, size_z, total_times, admin)
 
     # Getting the order and the initial shape of the array
     # order = reader.getDimensionOrder() #Obtains the 5D matrix: X,Y,Z, Channel and Time in order
@@ -195,6 +194,8 @@ def read_series(bf_reader, serieID=0, name=""):  # Reads a series
     axis_list = config.AXIS.items()
     print " -Getting matrix"
     matrix = utils.get_matrix(bf_reader,shape,serieID)
+    final_shape = np.shape(matrix)
+    serie = experiment.add_series(name, final_shape[0], final_shape[1], final_shape[2], total_times)
 
     for resolution in resolutions:
 
@@ -221,7 +222,7 @@ def read_series(bf_reader, serieID=0, name=""):  # Reads a series
                     elif axis[1]==2:
                         image = PILImage.fromarray(rescaled_matrix[:, :, pos, :, time].astype('uint8'))
 
-                    path = config.IMAGES_PATH + str(admin.id) + '/' + name + '/' + muestra.name + '/'  + axis[0] + '/'
+                    path = config.IMAGES_PATH + str(admin.id) + '/' + experiment.name + '/' + name + '/' + muestra.name + '/'  + axis[0] + '/'
 
                     if not os.path.exists(path):
                         os.makedirs(path)
@@ -237,6 +238,10 @@ def read_series(bf_reader, serieID=0, name=""):  # Reads a series
 #Saving Atlas
 def save_h5(filename):
 
+    admin = add_admin()
+    name = get_name_experiment(filename)
+    experiment = add_experiment(user=admin,info=None,name=name, is_atlas=True)
+
     with h5py.File(filename, 'r') as hf:
         groups_list = hf.keys()
         for group_key in groups_list:
@@ -247,7 +252,7 @@ def save_h5(filename):
                 atlas = dataset[:, :, :]
                 shape = np.shape(atlas)
 
-                atlas_model = add_atlas(name=dataset_key, size_x=shape[0], size_y=shape[1], size_z=shape[2])
+                atlas_model = experiment.add_atlas(name=dataset_key, size_x=shape[0], size_y=shape[1], size_z=shape[2])
 
                 resolutions = config.RESOLUTIONS.items()
                 axis_list = config.AXIS.items()
@@ -287,7 +292,7 @@ def save_h5(filename):
     gc.collect()
 
 #Populate function
-def populate(filename):
+def populate(filename, atlasname):
 
     # Checking VM
     check_VM()
@@ -296,9 +301,13 @@ def populate(filename):
     total_series = get_total_series(bf_reader.rdr)
     names = get_name(filename)
 
+    name = get_name_experiment(filename)
+    admin = add_admin()
+    experiment = add_experiment(name=name,info=None,user=admin, is_atlas=False)
+
     for serieID in range(0, total_series):
         print 'Loading serie: ' + names[serieID]
-        read_series(bf_reader=bf_reader, serieID=serieID, name=names[serieID])
+        read_series(experiment=experiment, bf_reader=bf_reader, serieID=serieID, name=names[serieID])
 
     kill_VM()
 
@@ -310,4 +319,4 @@ def populate(filename):
 # Start execution here!
 if __name__ == '__main__':
     print("Starting population script...")
-    populate(filename)
+    populate(filename,atlasname)

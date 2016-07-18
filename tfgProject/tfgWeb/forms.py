@@ -1,7 +1,6 @@
 from django import forms
 from tfgWeb.models import UserProfile
 from django.contrib.auth.models import User
-from tfgWeb import utils
 
 class UserForm(forms.ModelForm):
     password = forms.CharField(widget=forms.PasswordInput())

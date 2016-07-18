@@ -8,6 +8,7 @@ from django.core.urlresolvers import reverse
 from tfgWeb.forms import UserForm, UserProfileForm
 from tfgWeb.forms import InfoForm, UploadForm
 
+
 def index(request):
 
     context_dict = {}
@@ -17,7 +18,46 @@ def index(request):
     except:
         user = None
 
-    series_list = list(models.get_series(user))
+    experiment_list = models.get_experiments(user)
+    context_dict['experiment_list'] = experiment_list
+
+    if request.method == 'POST':
+
+        upload_form = UploadForm(request.POST, request.FILES)
+
+        if (upload_form.is_valid()):
+
+            path = request.FILES['file'].temporary_file_path()
+
+            context_dict['upload_form'] = upload_form
+
+            file = request.FILES['file']
+            parts = file.name.split('.')
+
+            if (len(parts) == 1):
+                raise ValueError("Type not allowed")
+            elif (parts[len(parts) - 1] == 'lif'):
+                utils.save_lif(path, request.user)
+            elif (parts[len(parts) - 1] == 'h5'):
+                utils.save_h5(path, request.user)
+
+            context_dict['upload_form'] = UploadForm()
+        else:
+            context_dict['upload_form'] = UploadForm()
+
+    return render(request, 'tfgWeb/index.html', context=context_dict)
+
+def experiment(request):
+
+    context_dict = {}
+
+    try:
+        selected_experiment = models.get_experiment(request.GET.get('experiment'))
+    except:
+        experiment_id = request.session['experiment']
+        selected_experiment = models.get_experiment(experiment_id)
+
+    series_list = list(selected_experiment.get_galerys())
     atlas_list = list(models.get_atlas())
     samples_list = config.RESOLUTIONS.keys()
 
@@ -28,7 +68,6 @@ def index(request):
     if request.method == 'POST':
 
         info_form = InfoForm(request.POST)
-        upload_form = UploadForm(request.POST, request.FILES)
 
         if (info_form.is_valid()):
 
@@ -57,7 +96,7 @@ def index(request):
             context_dict['size_z'] = sample.z_size
             context_dict['selected_muestra'] = selected_sample
 
-            front_image = selected_serie.get_image(selected_sample,'Z', pos_z, time)
+            front_image = selected_serie.get_image(selected_sample, 'Z', pos_z, time)
             side_image = selected_serie.get_image(selected_sample, 'Y', pos_y, time)
             top_image = selected_serie.get_image(selected_sample, 'X', pos_x, time)
 
@@ -65,7 +104,7 @@ def index(request):
             context_dict['top_image'] = '/' + top_image
             context_dict['side_image'] = '/' + side_image
 
-            front_atlas = selected_atlas.get_image(selected_sample,'Z', pos_z, 0)
+            front_atlas = selected_atlas.get_image(selected_sample, 'Z', pos_z, 0)
             side_atlas = selected_atlas.get_image(selected_sample, 'Y', pos_y, 0)
             top_atlas = selected_atlas.get_image(selected_sample, 'X', pos_x, 0)
 
@@ -79,36 +118,8 @@ def index(request):
             context_dict['time'] = time
             context_dict['total_times'] = selected_serie.total_times - 1
             context_dict['upload_form'] = UploadForm()
+            request.session['experiment'] = selected_experiment.id
 
-        if (upload_form.is_valid()):
-
-            path = request.FILES['file'].temporary_file_path()
-
-            context_dict['upload_form'] = upload_form
-
-            file = request.FILES['file']
-            parts = file.name.split('.')
-
-            if (len(parts)==1):
-                raise ValueError("Type not allowed")
-            elif (parts[len(parts)-1]=='lif'):
-                utils.save_lif(path, request.user)
-            elif (parts[len(parts) - 1] == 'h5'):
-                utils.save_h5(path, request.user)
-
-            context_dict['front_image'] = None
-            context_dict['top_image'] = None
-            context_dict['side_image'] = None
-            context_dict['pos_x'] = 0
-            context_dict['pos_y'] = 0
-            context_dict['pos_z'] = 0
-            context_dict['time'] = 0
-            if series_list:
-                series_list[0].total_times -= 1
-                context_dict['selected_serie'] = series_list[0]
-            context_dict['upload_form'] = UploadForm()
-        else:
-            context_dict['upload_form'] = UploadForm()
     else:
         context_dict['front_image'] = None
         context_dict['top_image'] = None
@@ -121,8 +132,23 @@ def index(request):
             series_list[0].total_times -= 1
             context_dict['selected_serie'] = series_list[0]
         context_dict['upload_form'] = UploadForm()
+        request.session['experiment'] = selected_experiment.id
 
-    return render(request, 'tfgWeb/index.html', context=context_dict)
+    return render(request, 'tfgWeb/experiment.html', context=context_dict)
+
+
+def info(request):
+    context_dict = {}
+
+    try:
+        selected_experiment = request.GET.get('experiment')
+        context_dict['info'] = selected_experiment.get_info()
+    except:
+        raise ValueError('Cannot find the experiment')
+
+    return render(request, 'tfgWeb/info.html', context=context_dict)
+
+
 
 def register(request):
 

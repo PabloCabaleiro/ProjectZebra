@@ -164,8 +164,11 @@ def get_matrix(bf_reader, shape, serieID=0):
         for pos_z in range(0, shape[2]):
             image5d[:, :, pos_z, :, time] = bf_reader.read(series=serieID, c=None, z=pos_z, t=time,
                                                                    rescale=False)
+    sizesXYZ, shapeXYZ = get_series_scale_lif(bf_reader, serieID)
 
-    return image5d
+    final_image5d = get_z_rescaled_matrix(image5d, bf_reader, shape, sizesXYZ)
+
+    return final_image5d
 
 #Getting images from matrix
 

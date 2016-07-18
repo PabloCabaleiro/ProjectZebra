@@ -9,12 +9,33 @@ from django.db.models import Q
 
 AUTH_USER_MODEL = getattr(settings, 'AUTH_USER_MODEL', 'auth.User')
 
-class Galery(models.Model):
-
+class Experiment(models.Model):
     name = models.CharField(max_length=128)
     owner = models.ForeignKey(AUTH_USER_MODEL, null=True)
-    total_times = models.IntegerField(default=0)
     is_atlas = models.BooleanField(default=False)
+    info = models.CharField(max_length=512, null=True)
+
+    def __str__(self):
+        return self.name
+
+    def get_galery(self, name):
+        return Galery.objects.get(Q(experiment=self) & Q(name=name))
+
+    def get_galerys(self):
+        return Galery.objects.filter(Q(experiment=self))
+
+    def add_atlas(self, name, size_x, size_y, size_z):
+        return Galery.objects.get_or_create(experiment=self, name= name, total_times=1, x_size=size_x, y_size= size_y, z_size=size_z)[0]
+
+    def add_series(self, name, times, size_x, size_y, size_z):
+        return Galery.objects.get_or_create(experiment=self, name=name, total_times=times, x_size=size_x, y_size= size_y, z_size=size_z)[0]
+
+
+class Galery(models.Model):
+
+    experiment = models.ForeignKey(Experiment)
+    name = models.CharField(max_length=128)
+    total_times = models.IntegerField(default=0)
     x_size = models.IntegerField(default=0)
     y_size = models.IntegerField(default=0)
     z_size = models.IntegerField(default=0)
@@ -105,14 +126,18 @@ class UserProfile(models.Model):
     def __str__(self):
         return self.user.username
 
-def get_series(user):
+def get_experiments(user):
     if user.is_anonymous():
-        series_list = Galery.objects.filter(Q(owner=User.objects.get_by_natural_key(config.ADMIN_NAME))).exclude(
+        series_list = Experiment.objects.filter(Q(owner=User.objects.get_by_natural_key(config.ADMIN_NAME))).exclude(
             is_atlas=True)
     else:
-        series_list = Galery.objects.filter(
+        series_list = Experiment.objects.filter(
             Q(owner=user) | Q(owner=User.objects.get_by_natural_key(config.ADMIN_NAME))).exclude(is_atlas=True)
     return series_list
 
+def get_experiment(experiment_id):
+    experiment =  Experiment.objects.get(Q(id=experiment_id))
+    return experiment
+
 def get_atlas():
-    return Galery.objects.all().exclude(is_atlas=False)
+    return Experiment.objects.get(is_atlas=False).get_galerys()
