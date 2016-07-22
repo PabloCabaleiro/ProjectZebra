@@ -195,7 +195,8 @@ def read_series(experiment, bf_reader, serieID=0, name=""):  # Reads a series
     print " -Getting matrix"
     matrix = utils.get_matrix(bf_reader,shape,serieID)
     final_shape = np.shape(matrix)
-    serie = experiment.add_series(name, final_shape[0], final_shape[1], final_shape[2], total_times)
+
+    serie = experiment.add_series(name, total_times, final_shape[0], final_shape[1], final_shape[2])
 
     for resolution in resolutions:
 
@@ -218,7 +219,7 @@ def read_series(experiment, bf_reader, serieID=0, name=""):  # Reads a series
                     if axis[1]==0:
                         image = PILImage.fromarray(rescaled_matrix[pos, :, :, :, time].astype('uint8'))
                     elif axis[1]==1:
-                        image = PILImage.fromarray(rescaled_matrix[:, pos, :, :, time].astype('uint8'))
+                        image = PILImage.fromarray(np.swapaxes(PILImage.fromarray(rescaled_matrix[:, pos, :, :, time].astype('uint8')),0,1).astype('uint8')) #Girar TOP IMAGE
                     elif axis[1]==2:
                         image = PILImage.fromarray(rescaled_matrix[:, :, pos, :, time].astype('uint8'))
 
@@ -254,7 +255,7 @@ def save_h5(filename):
 
                 atlas_model = experiment.add_atlas(name=dataset_key, size_x=shape[0], size_y=shape[1], size_z=shape[2])
 
-                resolutions = config.RESOLUTIONS.items()
+                resolutions = config.RESOLUTIONS_ATLAS.items()
                 axis_list = config.AXIS.items()
 
 
@@ -265,9 +266,9 @@ def save_h5(filename):
                     if (resolution[1]==1):
                         rescaled_shape = shape
                     else:
-                        rescaled_shape = (np.round(shape[0] / resolution[1]), np.round(shape[1] / resolution[1]),
-                                              np.round(shape[2] / resolution[1]))
-
+                        rescaled_shape = (int(shape[0] / resolution[1]), int(shape[1] / resolution[1]),
+                                              int(shape[2] / resolution[1]))
+                        print rescaled_shape
                         atlas.resize(rescaled_shape)
 
                     for axis in axis_list:
@@ -293,7 +294,7 @@ def save_h5(filename):
 
 #Populate function
 def populate(filename, atlasname):
-
+    """
     # Checking VM
     check_VM()
 
@@ -309,7 +310,7 @@ def populate(filename, atlasname):
         print 'Loading serie: ' + names[serieID]
         read_series(experiment=experiment, bf_reader=bf_reader, serieID=serieID, name=names[serieID])
 
-    kill_VM()
+    kill_VM()"""
 
     print "Loading atlas..."
     save_h5(atlasname)

@@ -1,4 +1,3 @@
-<!DOCTYPE html>
 {% extends "tfgWeb/base.html" %}
 {% load staticfiles %}
 
@@ -29,13 +28,13 @@
                     Calidad:
                     <select name="muestra" >
                         {% for muestra in muestras %}
-                            <option value={{ muestra}} {% if muestra == muestra_atlas %}selected{% endif %}> {{ muestra }} </option>
+                            <option value={{ muestra}} {% if muestra == selected_muestra %}selected{% endif %}> {{ muestra }} </option>
                         {% endfor %}
                     </select>
-                    Time: <input name="time" type="number" size="5" value= {{ time }} max= {{ selected_serie.total_times }} min="0" />
-                    x = <input type="text" name="pos_x" value= {{ pos_x }}  size="5" />
-                    y = <input title="y" type="text" name="pos_y" value={{ pos_y }} size="5" />
-                    z = <input title="z" type="text" name="pos_z" value={{ pos_z }} size="5" />
+                    Time: <input name="time" type="number" value= {{ time }} max= {{ total_times }} min="0" />
+                    <input id = "pos_x" hidden type="text" name="pos_x" value= {{ pos_x }} size="5" />
+                    <input id = "pos_y" hidden type="text" name="pos_y" value= {{ pos_y }} size="5" />
+                    <input id = "pos_z" hidden type="text" name="pos_z" value= {{ pos_z }} size="5" />
                     <input type="submit" value="actualizar" />
                 </form>
             {% endif %}
@@ -43,14 +42,119 @@
         <br>
         <div>
             {% if front_image %}
-                <img title="Front image" src={{ front_image }} />
-            {% endif %}
-            {% if top_image %}
-                <img title="Top image" src={{ top_image }} />
+                <canvas title="Front image" id="canvas_front" width= {{ size_x }} height= {{ size_y }} style="position: relative; z-index: 0;"></canvas>
             {% endif %}
             {% if side_image %}
-                <img title="Side image" src={{ side_image }} />
-            {% endif %}
+                <canvas title="Side image" id="canvas_side" width= {{ size_z }} height= {{ size_y }}></canvas>
 
+            {% endif %}
+            {% if top_image %}
+                <canvas title="Top image" id="canvas_top" width= {{ size_x }} height= {{ size_z }}></canvas>
+
+            {% endif %}
+            <script>
+
+              function writeMessage(context, canvas, message) {
+                context.font = '14pt Calibri';
+                context.fillStyle = 'red';
+                context.fillText(message, 10, 25);
+              }
+
+              function getMousePos(canvas, evt) {
+                var rect = canvas.getBoundingClientRect();
+                return {
+                  x: Math.round((evt.clientX-rect.left)/(rect.right-rect.left)*canvas.width),
+                  y: Math.round((evt.clientY-rect.top)/(rect.bottom-rect.top)*canvas.height)
+                };
+              }
+
+              function drawLines(canvas, mousePos) {
+                var context = canvas.getContext('2d');
+                context.beginPath();
+                context.strokeStyle = "#f00";
+                context.moveTo(0,mousePos.y);
+                context.lineTo(canvas.width,mousePos.y);
+                context.moveTo(mousePos.x,0);
+                context.lineTo(mousePos.x,canvas.height);
+                var message = mousePos.x + ', ' + mousePos.y;
+                context.stroke();
+              }
+              
+              window.onload = function(){
+
+                  var canvas_top = document.getElementById('canvas_top');
+                  var canvas_front = document.getElementById('canvas_front');
+                  var canvas_front_atlas = document.getElementById('canvas_front_atlas');
+                  var canvas_side = document.getElementById('canvas_side');
+                  var pos_x = document.getElementById('pos_x');
+                  var pos_y = document.getElementById('pos_y');
+                  var pos_z = document.getElementById('pos_z');
+                  var info_form = document.getElementById('info_form');
+
+                  var context_top = canvas_top.getContext('2d');
+                  var pos_top = { x:{{ pos_x }} , y:{{ pos_z }} };
+  	              var top_img = new Image();
+		          top_img.src = '{{ top_image }}';
+		          top_img.onload = function(){
+                    context_top.drawImage(top_img, 0, 0);
+                    drawLines(canvas_top, pos_top);
+                    var message = 'Top: ' + pos_top.x + 'x, ' + pos_top.y + 'z';
+                    writeMessage(context_top, canvas_top, message);
+                  };
+
+                  var context_front = canvas_front.getContext('2d');
+                  var pos_front = { x:{{ pos_x }}, y:{{ pos_y }} };
+                  var front_img = new Image();
+                  front_img.src = '{{ front_image }}';
+		          front_img.onload = function(){
+                    context_front.drawImage(front_img, 0, 0);
+                    drawLines(canvas_front,pos_front);
+                    var message = 'Front: ' + pos_front.x + 'x, ' + pos_front.y + 'y';
+                    writeMessage(context_front, canvas_front, message);
+                  };
+
+                  /*var context_front_atlas = canvas_front_atlas.getContext('2d');
+                  var front_img_atlas = new Image();
+                  front_img_atlas.src = '{{ front_atlas }}';
+		          front_img_atlas.onload = function(){
+                    context_front_atlas.drawImage(front_img, 0, 0);
+                  };*/
+
+                  var context_side = canvas_side.getContext('2d');
+                  var pos_side = { x:{{ pos_z }}, y:{{ pos_y }} };
+                  var side_img = new Image();
+                  side_img.src = '{{ side_image }}';
+		          side_img.onload = function(){
+                    context_side.drawImage(side_img, 0, 0);
+                    drawLines(canvas_side,pos_side);
+                    var message = 'Side: ' + pos_side.x + 'z, ' + pos_side.y + 'y';
+                    writeMessage(context_side, canvas_side, message);
+                  };
+
+                  canvas_top.addEventListener('click', function(evt) {
+                    var mousePos = getMousePos(canvas_top, evt);
+                    pos_z.value = mousePos.y;
+                    pos_x.value = mousePos.x;
+                    info_form.submit();
+                  }, false);
+
+                  canvas_front.addEventListener('click', function(evt) {
+                    var mousePos = getMousePos(canvas_front, evt);
+                    pos_x.value = mousePos.x;
+                    pos_y.value = mousePos.y;
+                    info_form.submit();
+                  }, false);
+
+                  canvas_side.addEventListener('click', function(evt) {
+                    var mousePos = getMousePos(canvas_side, evt);
+                    pos_z.value = mousePos.x;
+                    pos_y.value = mousePos.y;
+                    info_form.submit();
+                  }, false);
+              }
+
+
+
+            </script>
         </div>
 {% endblock %}

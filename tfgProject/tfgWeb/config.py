@@ -23,6 +23,10 @@ RESOLUTIONS = {
     'LOW':3,
 }
 
+RESOLUTIONS_ATLAS = {
+    'HIGH': 1,
+}
+
 AXIS = {
     'X': 0,
     'Y': 1,

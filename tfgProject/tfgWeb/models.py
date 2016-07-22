@@ -57,6 +57,9 @@ class Galery(models.Model):
         muestra =  Sample.objects.get(Q(galery=self) & Q(name=muestra_key))
         return muestra
 
+    def get_samples(self):
+        return Sample.objects.filter(Q(galery=self)).order_by('-x_size')
+
     def get_axis(self, muestra_key, axis_name):
         return self.get_sample(muestra_key).get_axis(axis_name)
 
@@ -140,4 +143,4 @@ def get_experiment(experiment_id):
     return experiment
 
 def get_atlas():
-    return Experiment.objects.get(is_atlas=False).get_galerys()
+    return Experiment.objects.get(is_atlas=True).get_galerys()

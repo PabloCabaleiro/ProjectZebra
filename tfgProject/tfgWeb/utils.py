@@ -109,7 +109,7 @@ def get_z_rescaled_matrix(image5d, bf_reader, shape, sizesXYZ):  # Returns propo
             image5d: no-proportional 5D numpy array
     """
 
-    print "Creating the z rescaled array... "
+    print "     Creating the z rescaled array... "
 
     # Adjust the z size of the array
     shape[2] = int(np.trunc(shape[2] * sizesXYZ[2] / sizesXYZ[0]))  # Change z dim size
@@ -164,7 +164,7 @@ def get_matrix(bf_reader, shape, serieID=0):
         for pos_z in range(0, shape[2]):
             image5d[:, :, pos_z, :, time] = bf_reader.read(series=serieID, c=None, z=pos_z, t=time,
                                                                    rescale=False)
-    sizesXYZ, shapeXYZ = get_series_scale_lif(bf_reader, serieID)
+    sizesXYZ, shapeXYZ = get_series_scale_lif(bf_reader.rdr, serieID)
 
     final_image5d = get_z_rescaled_matrix(image5d, bf_reader, shape, sizesXYZ)
 
