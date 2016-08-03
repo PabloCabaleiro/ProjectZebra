@@ -139,8 +139,8 @@ def get_name_experiment(filename):
 
 #Adding to BD
 
-def add_experiment(name, info, user, is_atlas):
-    experiment = Experiment.objects.get_or_create(owner=user, name=name, info= info, is_atlas=is_atlas)[0]
+def add_experiment(name, info, user, is_atlas, front_axis, top_axis, side_axis):
+    experiment = Experiment.objects.get_or_create(owner=user, name=name, info= info, is_atlas=is_atlas, front_axis=front_axis, side_axis=side_axis, top_axis=top_axis)[0]
     return experiment
 
 def add_admin():
@@ -216,12 +216,16 @@ def read_series(experiment, bf_reader, serieID=0, name=""):  # Reads a series
 
             for time in range(0, shape[4]):
                 for pos in range(0, rescaled_shape[axis[1]]):
-                    if axis[1]==0:
-                        image = PILImage.fromarray(rescaled_matrix[pos, :, :, :, time].astype('uint8'))
-                    elif axis[1]==1:
-                        image = PILImage.fromarray(np.swapaxes(PILImage.fromarray(rescaled_matrix[:, pos, :, :, time].astype('uint8')),0,1).astype('uint8')) #Girar TOP IMAGE
-                    elif axis[1]==2:
-                        image = PILImage.fromarray(rescaled_matrix[:, :, pos, :, time].astype('uint8'))
+                    if axis[0]==experiment.top_axis:
+                        image = PILImage.fromarray(rescaled_matrix[:, pos, :, :, time].astype('uint8')).convert('RGBA')
+                    elif axis[0]==experiment.side_axis:
+                        image = PILImage.fromarray(np.swapaxes(PILImage.fromarray(rescaled_matrix[pos, :, :, :, time].astype('uint8')),0,1).astype('uint8')).convert('RGBA') #Girar TOP IMAGE
+                    elif axis[0]==experiment.front_axis:
+                        image = PILImage.fromarray(rescaled_matrix[:, :, pos, :, time].astype('uint8')).convert('RGBA')
+
+                    #Add alpha channel
+                    aux_image = image.convert('L')
+                    image.putalpha(aux_image)
 
                     path = config.IMAGES_PATH + str(admin.id) + '/' + experiment.name + '/' + name + '/' + muestra.name + '/'  + axis[0] + '/'
 
@@ -241,10 +245,11 @@ def save_h5(filename):
 
     admin = add_admin()
     name = get_name_experiment(filename)
-    experiment = add_experiment(user=admin,info=None,name=name, is_atlas=True)
+    experiment = add_experiment(user=admin,info=None,name=name, is_atlas=True, front_axis='Z', top_axis='X', side_axis='Y')
 
     with h5py.File(filename, 'r') as hf:
         groups_list = hf.keys()
+        views = config.VIEWS
         for group_key in groups_list:
             dataset_list = hf[group_key]
             for dataset_key in dataset_list:
@@ -268,19 +273,21 @@ def save_h5(filename):
                     else:
                         rescaled_shape = (int(shape[0] / resolution[1]), int(shape[1] / resolution[1]),
                                               int(shape[2] / resolution[1]))
-                        print rescaled_shape
                         atlas.resize(rescaled_shape)
 
                     for axis in axis_list:
                         axis_model = muestra.add_axis(name=axis[0])
 
                         for pos in range(0, rescaled_shape[axis[1]]):
-                            if axis[1] == 0:
-                                image = PILImage.fromarray(atlas[pos, :, :].astype('uint8')).convert('RGBA')
-                            elif axis[1] == 1:
-                                image = PILImage.fromarray(atlas[:, pos, :].astype('uint8')).convert('RGBA')
-                            elif axis[1] == 2:
-                                image = PILImage.fromarray(atlas[:, :, pos].astype('uint8')).convert('RGBA')
+                            if axis[0] == experiment.top_axis:
+                                image = PILImage.fromarray(atlas[:, pos, :].astype('uint8'))
+                            elif axis[0] == experiment.side_axis:
+                                image = PILImage.fromarray(atlas[pos, :, :].astype('uint8'))
+                            elif axis[0] == experiment.front_axis:
+                                image = PILImage.fromarray(atlas[:, :, pos].astype('uint8'))
+
+                            if axis[0]==experiment.top_axis:
+                                image = image.rotate(180)
 
                             path = config.ATLAS_PATH + dataset_key + '/' + resolution[0] +'/' + axis[0] + '/'
                             if not os.path.exists(path):
@@ -294,7 +301,7 @@ def save_h5(filename):
 
 #Populate function
 def populate(filename, atlasname):
-    """
+
     # Checking VM
     check_VM()
 
@@ -304,13 +311,13 @@ def populate(filename, atlasname):
 
     name = get_name_experiment(filename)
     admin = add_admin()
-    experiment = add_experiment(name=name,info=None,user=admin, is_atlas=False)
+    experiment = add_experiment(name=name,info=None,user=admin, is_atlas=False, top_axis='X', side_axis='Y', front_axis='Z')
 
     for serieID in range(0, total_series):
         print 'Loading serie: ' + names[serieID]
         read_series(experiment=experiment, bf_reader=bf_reader, serieID=serieID, name=names[serieID])
 
-    kill_VM()"""
+    kill_VM()
 
     print "Loading atlas..."
     save_h5(atlasname)

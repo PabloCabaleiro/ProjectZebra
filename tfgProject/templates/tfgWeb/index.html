@@ -21,6 +21,12 @@
                 <form id="upload_form" method="post" action="/tfgWeb/" enctype= multipart/form-data>
                     {% csrf_token %}
                     {{ upload_form.file }}
+                    Order:
+                    <select name="order" >
+                        {% for order in orders %}
+                            <option  value={{ order }} > {{ order }} </option>
+                        {% endfor %}
+                    </select>
                     <input type="submit" value="upload" />
                 </form>
                 <br>

@@ -20,6 +20,8 @@ def index(request):
 
     experiment_list = models.get_experiments(user)
     context_dict['experiment_list'] = experiment_list
+    context_dict['orders'] = config.ORDERS.keys()
+    context_dict['upload_form'] = UploadForm()
 
     if request.method == 'POST':
 
@@ -28,6 +30,7 @@ def index(request):
         if (upload_form.is_valid()):
 
             path = request.FILES['file'].temporary_file_path()
+            order = upload_form.cleaned_data['serie']
 
             context_dict['upload_form'] = upload_form
 
@@ -37,9 +40,9 @@ def index(request):
             if (len(parts) == 1):
                 raise ValueError("Type not allowed")
             elif (parts[len(parts) - 1] == 'lif'):
-                utils.save_lif(path, request.user)
+                utils.save_lif(path, request.user, order)
             elif (parts[len(parts) - 1] == 'h5'):
-                utils.save_h5(path, request.user)
+                utils.save_h5(path, request.user, order)
 
             context_dict['upload_form'] = UploadForm()
         else:
@@ -62,6 +65,7 @@ def experiment(request):
 
     context_dict['series'] = series_list
     context_dict['atlas_list'] = atlas_list
+    views_list = config.VIEWS
 
     if request.method == 'POST':
 
@@ -94,38 +98,54 @@ def experiment(request):
             else:
                 context_dict['muestras'] = samples_allowed
 
-            pos_x = info_form.cleaned_data['pos_x']
-            pos_y = info_form.cleaned_data['pos_y']
-            pos_z = info_form.cleaned_data['pos_z']
+
+            pos_x_atlas = info_form.cleaned_data['pos_x_atlas']
+            pos_y_atlas = info_form.cleaned_data['pos_y_atlas']
+            pos_z_atlas = info_form.cleaned_data['pos_z_atlas']
+
             time = info_form.cleaned_data['time']
             selected_sample = info_form.cleaned_data['muestra']
+            sample = serie.get_sample(selected_sample)
 
-            sample = selected_serie.get_sample(selected_sample)
-
-            context_dict['size_x'] = sample_atlas.x_size
-            context_dict['size_y'] = sample_atlas.y_size
-            context_dict['size_z'] = sample_atlas.z_size
+            context_dict['size_x'] = int(sample_atlas.x_size/2)
+            context_dict['size_y'] = int(sample_atlas.y_size/2)
+            context_dict['size_z'] = int(sample_atlas.z_size/2)
             context_dict['selected_muestra'] = selected_sample
+            width =  info_form.cleaned_data['width']
+            height =  info_form.cleaned_data['height']
+            depth =  info_form.cleaned_data['depth']
+            context_dict['width'] = width
+            context_dict['height'] = height
+            context_dict['depth'] = depth
+            pos_x = info_form.cleaned_data['pos_x']*sample.x_size/width
+            pos_y = info_form.cleaned_data['pos_y']*sample.y_size/height
+            pos_z = info_form.cleaned_data['pos_z']*sample.z_size/depth
 
-            front_image = selected_serie.get_image(selected_sample, 'Z', pos_z, time)
-            side_image = selected_serie.get_image(selected_sample, 'X', pos_y, time)
-            top_image = selected_serie.get_image(selected_sample, 'Y', pos_x, time)
+            front_image = selected_serie.get_image(selected_sample, views_list['FRONT'], pos_z, time)
+            side_image = selected_serie.get_image(selected_sample, views_list['SIDE'], pos_y, time)
+            top_image = selected_serie.get_image(selected_sample, views_list['TOP'], pos_x, time)
 
             context_dict['front_image'] = '/' + front_image
             context_dict['top_image'] = '/' + top_image
             context_dict['side_image'] = '/' + side_image
 
-            front_atlas = selected_atlas.get_image(sample_atlas.name, 'X', pos_z, 0)
-            side_atlas = selected_atlas.get_image(sample_atlas.name, 'Y', pos_y, 0)
-            top_atlas = selected_atlas.get_image(sample_atlas.name, 'Z', pos_x, 0)
+            front_atlas = selected_atlas.get_image(sample_atlas.name, views_list['FRONT'], pos_z_atlas, 0)
+            side_atlas = selected_atlas.get_image(sample_atlas.name, views_list['SIDE'], pos_y_atlas, 0)
+            top_atlas = selected_atlas.get_image(sample_atlas.name, views_list['TOP'], pos_x_atlas, 0)
 
             context_dict['front_atlas'] = '/' + front_atlas
             context_dict['top_atlas'] = '/' + top_atlas
             context_dict['side_atlas'] = '/' + side_atlas
 
-            context_dict['pos_x'] = pos_x
-            context_dict['pos_y'] = pos_y
-            context_dict['pos_z'] = pos_z
+            context_dict['pos_x'] = pos_x*width/sample.x_size
+            context_dict['pos_y'] = pos_y*height/sample.y_size
+            context_dict['pos_z'] = pos_z*depth/sample.z_size
+            context_dict['pos_x_start'] = info_form.cleaned_data['pos_x_start']
+            context_dict['pos_y_start'] = info_form.cleaned_data['pos_y_start']
+            context_dict['pos_z_start'] = info_form.cleaned_data['pos_z_start']
+            context_dict['pos_x_atlas'] = pos_x_atlas
+            context_dict['pos_y_atlas'] = pos_y_atlas
+            context_dict['pos_z_atlas'] = pos_z_atlas
             context_dict['time'] = time
             context_dict['total_times'] = selected_serie.total_times - 1
             context_dict['upload_form'] = UploadForm()
@@ -136,6 +156,12 @@ def experiment(request):
         context_dict['pos_x'] = 0
         context_dict['pos_y'] = 0
         context_dict['pos_z'] = 0
+        context_dict['pos_x_atlas'] = 0
+        context_dict['pos_y_atlas'] = 0
+        context_dict['pos_z_atlas'] = 0
+        context_dict['pos_x_start'] = 0
+        context_dict['pos_y_start'] = 0
+        context_dict['pos_z_start'] = 0
         context_dict['time'] = 0
         if series_list:
             context_dict['total_times'] = series_list[0].total_times - 1
@@ -155,16 +181,19 @@ def experiment(request):
             else:
                 context_dict['muestras'] = samples_allowed
 
-            context_dict['front_image'] = '/' + series_list[0].get_image(sample_selected.name, 'Z', 0, 0)
-            context_dict['top_image'] = '/' + series_list[0].get_image(sample_selected.name, 'Y', 0, 0)
-            context_dict['side_image'] = '/' + series_list[0].get_image(sample_selected.name, 'X', 0, 0)
-            context_dict['front_atlas'] = '/' + atlas_list[0].get_image(sample_selected.name, 'Z', 0, 0)
-            context_dict['side_atlas'] = '/' + atlas_list[0].get_image(sample_selected.name, 'Y', 0, 0)
-            context_dict['top_atlas'] = '/' + atlas_list[0].get_image(sample_selected.name, 'X', 0, 0)
+            context_dict['front_image'] = '/' + series_list[0].get_image(sample_selected.name, views_list['FRONT'], 0, 0)
+            context_dict['top_image'] = '/' + series_list[0].get_image(sample_selected.name, views_list['TOP'], 0, 0)
+            context_dict['side_image'] = '/' + series_list[0].get_image(sample_selected.name, views_list['SIDE'], 0, 0)
+            context_dict['width'] = int(sample_selected.x_size/2)
+            context_dict['height'] = int(sample_selected.y_size/2)
+            context_dict['depth'] = int(sample_selected.z_size/2)
+            context_dict['front_atlas'] = '/' + atlas_list[0].get_image(sample_atlas.name, views_list['FRONT'], 0, 0)
+            context_dict['side_atlas'] = '/' + atlas_list[0].get_image(sample_atlas.name, views_list['SIDE'], 0, 0)
+            context_dict['top_atlas'] = '/' + atlas_list[0].get_image(sample_atlas.name, views_list['TOP'], 0, 0)
             context_dict['selected_muestra'] = sample_selected.name
-            context_dict['size_x'] = sample_selected.x_size
-            context_dict['size_y'] = sample_selected.y_size
-            context_dict['size_z'] = sample_selected.z_size
+            context_dict['size_x'] = int(atlas_list[0].x_size/2)
+            context_dict['size_y'] = int(atlas_list[0].y_size/2)
+            context_dict['size_z'] = int(atlas_list[0].z_size/2)
         context_dict['upload_form'] = UploadForm()
         request.session['experiment'] = selected_experiment.id
 

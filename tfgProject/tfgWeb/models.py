@@ -14,6 +14,9 @@ class Experiment(models.Model):
     owner = models.ForeignKey(AUTH_USER_MODEL, null=True)
     is_atlas = models.BooleanField(default=False)
     info = models.CharField(max_length=512, null=True)
+    front_axis = models.CharField(max_length=1,default='Z')
+    side_axis = models.CharField(max_length=1,default='X')
+    top_axis = models.CharField(max_length=1,default='Y')
 
     def __str__(self):
         return self.name
@@ -119,7 +122,7 @@ class Image(models.Model):
     time = models.IntegerField(default=-1)
 
     def __str__(self):
-        return self.axis.__str__() + " position " + str(self.pos_z) + " and time " + str(self.time)
+        return self.axis.__str__() + " position " + str(self.pos) + " and time " + str(self.time)
 
 class UserProfile(models.Model):
 
@@ -144,3 +147,4 @@ def get_experiment(experiment_id):
 
 def get_atlas():
     return Experiment.objects.get(is_atlas=True).get_galerys()
+
