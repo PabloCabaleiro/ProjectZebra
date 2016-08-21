@@ -2,10 +2,6 @@
 {% load staticfiles %}
 
 {% block title_block %}
-    <div>
-        <h1>tfgProject!</h1>
-        <br/>
-    </div>
 {% endblock %}
 
 {% block body_block %}
@@ -13,25 +9,40 @@
             {% if series %}
                 <form id="info_form" method="post" action="/experiment/" enctype= multipart/form-dat>
                     {% csrf_token %}
+                    Vista:
+                    <select id="vistas" onchange="handleInfoSubmit()" name="vista" >
+                        {% for view in views_list %}
+                            <option  value={{ view }} {% if view == selected_view %}selected{% endif %}> {{ view }} </option>
+                        {% endfor %}
+                    </select>
                     Series:
-                    <select onchange="this.form.submit()" name="serie" >
+                    <select id="series" onchange="handleInfoSubmit()" name="serie" >
                         {% for serie in series %}
                             <option  value={{ serie.id }} {% if serie.id == selected_serie.id %}selected{% endif %}> {{ serie.name }} </option>
                         {% endfor %}
                     </select>
+                    {% if selected_view != 'BRAIN' %}
                     Atlas:
-                    <select onchange="this.form.submit()" name="atlas" >
+                    {% endif %}
+                    <select id="atlas" onchange="handleInfoSubmit()" {% if selected_view == 'BRAIN' %} hidden {% endif %} name="atlas" >
                         {% for atlas in atlas_list %}
                             <option value={{ atlas.id }} {% if atlas.id == selected_atlas.id %}selected{% endif %}> {{ atlas.name }} </option>
                         {% endfor %}
                     </select>
-                    Calidad:
-                    <select onchange="this.form.submit()" name="muestra" >
-                        {% for muestra in muestras %}
-                            <option value={{ muestra}} {% if muestra == selected_muestra %}selected{% endif %}> {{ muestra }} </option>
+                    {% if selected_view != 'BRAIN' and user.is_authenticated %}
+                    Zones:
+                    {% endif %}
+                    <select id="zones" onchange="handleInfoSubmit()" {% if selected_view == 'BRAIN' or not user.is_authenticated %} hidden {% endif %} name="zone" >
+                        <option value="-1"> Ninguno </option>
+                        {% for zone in zones_list %}
+                            <option value={{ zone.id }} {% if zone.id == selected_zone.id %}selected{% endif %}> {{ zone.name }} </option>
                         {% endfor %}
                     </select>
-                    Time: <input name="time" type="number" value= {{ time }} max= {{ total_times }} min="0" onchange="this.form.submit()" />
+                    {% if total_times > 0 %}
+                        Time: <input name="time" type="number" value= {{ time }} max= {{ total_times }} min="0" onchange="this.form.submit()" />
+                    {% else %}
+                         <input name="time" hidden type="number" value= {{ time }} max= {{ total_times }} min="0" onchange="this.form.submit()" />
+                    {% endif %}
                     <input id = "pos_x" hidden type="text" name="pos_x" value= {{ pos_x }} size="5" />
                     <input id = "pos_y" hidden type="text" name="pos_y" value= {{ pos_y }} size="5" />
                     <input id = "pos_z" hidden type="text" name="pos_z" value= {{ pos_z }} size="5" />
@@ -41,22 +52,19 @@
                     <input id = "width" hidden type="text" name="width" value= {{ width }} />
                     <input id = "height" hidden type="text" name="height" value= {{ height }} />
                     <input id = "depth" hidden type="text" name="depth" value= {{ depth }} />
-                    Atlas x: <input id = "pos_x_atlas"  type="text" name="pos_x_atlas" value= {{ pos_x_atlas }} onchange="this.form.submit()" size="5" />
-                    y: <input id = "pos_y_atlas"  type="text" name="pos_y_atlas" value= {{ pos_y_atlas }} onchange="this.form.submit()" size="5" />
-                    z: <input id = "pos_z_atlas"  type="text" name="pos_z_atlas" value= {{ pos_z_atlas }} onchange="this.form.submit()" size="5" />
-                </form>
+               </form>
             {% endif %}
         </div>
         <br>
         <div>
             {% if top_image %}
-                <canvas title="Top image" id="canvas_top" width= {{ size_z }} height= {{ size_x }} ></canvas>
+                <canvas title="Top image" id="canvas_top" width= {{ atlas_size_z }} height= {{ atlas_size_x }} ></canvas>
             {% endif %}
             {% if front_image %}
-                <canvas title= "Front image" id="canvas_front" width= {{ size_x }} height= {{ size_y }} ></canvas>
+                <canvas title= "Front image" id="canvas_front" width= {{ atlas_size_x }} height= {{ atlas_size_y }} ></canvas>
             {% endif %}
             {% if side_image %}
-                <canvas title="Side image" id="canvas_side" width= {{ size_z }} height= {{ size_y }} ></canvas>
+                <canvas title="Side image" id="canvas_side" width= {{ atlas_size_z }} height= {{ atlas_size_y }} ></canvas>
             {% endif %}
             <script>
 
@@ -88,9 +96,11 @@
                 var resizerRadius=4;
                 var rr=resizerRadius*resizerRadius;
                 var draggingResizer={x:0,y:0};
+
                 var imageX= {{ pos_x_start }};
                 var imageY={{ pos_y_start }};
                 var imageZ={{ pos_z_start }};
+
                 var imageWidth = {{ width }};
                 var imageHeight = {{ height }};
                 var imageDepth = {{ depth }};
@@ -105,6 +115,7 @@
                 var height_form = document.getElementById('height');
                 var depth_form = document.getElementById('depth');
                 var info_form = document.getElementById('info_form');
+
 
                 var lastImageWidth = imageWidth;
                 var lastImageHeight = imageHeight;
@@ -153,7 +164,6 @@
                     canvas_top.addEventListener('mouseup',handleMouseUpTop);
                     canvas_top.addEventListener('mouseout',handleMouseOutTop);
 
-                    info_form.addEventListener('submit',handleInfoSubmit);
 
                     img_top = new Image();
                     atlas_top = new Image();
@@ -195,13 +205,14 @@
                     context.fillText(message, 10, 25);
                 }
 
-                function handleInfoSubmit(e) {
+                function handleInfoSubmit() {
                     pos_x_start.value = imageX;
                     pos_z_start.value = imageZ;
                     pos_y_start.value = imageY;
                     width_form.value = imageWidth;
                     height_form.value = imageHeight;
                     depth_form.value = imageDepth;
+                    info_form.submit();
 
                 }
 
@@ -216,14 +227,14 @@
                 function draw(){
 
                     //clean the canvas
-                    ctx_front.clearRect(0,0,{{ size_x }},{{ size_y }});
-                    ctx_top.clearRect(0,0,{{ size_z }},{{ size_x }});
-                    ctx_side.clearRect(0,0,{{ size_z }},{{ size_y }});
+                    ctx_front.clearRect(0,0,{{ atlas_size_x }},{{ atlas_size_y }});
+                    ctx_top.clearRect(0,0,{{ atlas_size_z }},{{ atlas_size_x }});
+                    ctx_side.clearRect(0,0,{{ atlas_size_z }},{{ atlas_size_y }});
 
                     // draw the images
                     //FRONT
                     ctx_front.globalCompositeOperation = 'destination-over';
-                    ctx_front.drawImage(atlas_front, 0, 0,atlas_front.width,atlas_front.height,0,0,{{ size_x }},{{ size_y }});
+                    ctx_front.drawImage(atlas_front, 0, 0,atlas_front.width,atlas_front.height,0,0,{{ atlas_size_x }},{{ atlas_size_y }});
                     ctx_front.globalCompositeOperation = 'source-over';
                     ctx_front.drawImage(img_front,0,0,img_front.width,img_front.height,imageX,imageY,imageWidth,imageHeight);
                     // draw the connecting anchor lines
@@ -249,7 +260,7 @@
 
                     //TOP
                     ctx_top.globalCompositeOperation = 'destination-over';
-                    ctx_top.drawImage(atlas_top, 0, 0,atlas_top.width,atlas_top.height,0,0,{{ size_z }},{{ size_x }});
+                    ctx_top.drawImage(atlas_top, 0, 0,atlas_top.width,atlas_top.height,0,0,{{ atlas_size_z }},{{ atlas_size_x }});
                     ctx_top.globalCompositeOperation = 'source-over';
                     ctx_top.drawImage(img_top,0,0,img_top.width,img_top.height,imageZ,imageX,imageDepth,imageWidth);
                     // draw the connecting anchor lines
@@ -274,7 +285,7 @@
 
                     //SIDE
                     ctx_side.globalCompositeOperation = 'destination-over';
-                    ctx_side.drawImage(atlas_side, 0, 0,atlas_side.width,atlas_side.height,0,0,{{ size_z }},{{ size_y }});
+                    ctx_side.drawImage(atlas_side, 0, 0,atlas_side.width,atlas_side.height,0,0,{{ atlas_size_z }},{{ atlas_size_y }});
                     ctx_side.globalCompositeOperation = 'source-over';
                     ctx_side.drawImage(img_side,0,0,img_side.width,img_side.height,imageZ,imageY,imageDepth,imageHeight);
                     // draw the connecting anchor lines
@@ -443,8 +454,8 @@
 
                 function handleMouseDownSide(e){
                   var rect = canvas_side.getBoundingClientRect();
-                  startZ=Math.round((e.clientX-rect.left)/(rect.right-rect.left)*{{size_z}});
-                  startY=Math.round((e.clientY-rect.top)/(rect.bottom-rect.top)*{{size_y}});
+                  startZ=Math.round((e.clientX-rect.left)/(rect.right-rect.left)*{{atlas_size_z}});
+                  startY=Math.round((e.clientY-rect.top)/(rect.bottom-rect.top)*{{atlas_size_y}});
                   draggingResizer=anchorHitTest('SIDE',startZ,startY);
                   hit = hitImage('SIDE',startZ,startY);
                   down = draggingResizer<0 && hit;
@@ -452,8 +463,8 @@
 
                 function handleMouseDownTop(e){
                   var rect = canvas_top.getBoundingClientRect();
-                  startZ=Math.round((e.clientX-rect.left)/(rect.right-rect.left)*{{size_z}});
-                  startX=Math.round((e.clientY-rect.top)/(rect.bottom-rect.top)*{{size_x}});
+                  startZ=Math.round((e.clientX-rect.left)/(rect.right-rect.left)*{{atlas_size_z}});
+                  startX=Math.round((e.clientY-rect.top)/(rect.bottom-rect.top)*{{atlas_size_x}});
                   draggingResizer=anchorHitTest('TOP',startZ,startX);
                   hit = hitImage('TOP',startZ,startX);
                   down = draggingResizer<0 && hit;

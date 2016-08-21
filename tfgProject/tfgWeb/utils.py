@@ -176,6 +176,22 @@ def get_matrix(bf_reader, shape, serieID=0):
 
     return final_image5d
 
+def get_image_sizes(size_x, size_y, size_z, original_width,  original_height,  original_depth, scale_factor=1):
+
+    width = int(original_width/scale_factor)
+    height = int(original_height/scale_factor)
+    depth = int(original_depth/scale_factor)
+
+    if (width<size_x and height<size_y and depth<size_z):
+        image_sizes = {}
+        image_sizes['X']=width
+        image_sizes['Y']=height
+        image_sizes['Z']=depth
+        return image_sizes
+    else:
+        return get_image_sizes(size_x,size_y,size_z,original_width,original_height,original_depth,scale_factor+1)
+
+
 #Getting images from matrix
 
 def get_top_image(image5d, pos_z=0, time=0, user='default'):

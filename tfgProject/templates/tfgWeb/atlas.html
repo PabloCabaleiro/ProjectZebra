@@ -1,0 +1,289 @@
+{% extends "tfgWeb/base.html" %}
+{% load staticfiles %}
+
+{% block title_block %}
+    <div>
+        <h1>tfgProject!</h1>
+        <br/>
+    </div>
+{% endblock %}
+
+{% block body_block %}
+        <div>
+            <form id="atlas_form" method="post" enctype= multipart/form-dat>
+                {% csrf_token %}
+                Vista:
+                <select id="vistas" onchange="this.form.submit()" name="vista" >
+                    {% for view in views_list %}
+                        <option  value={{ view }} {% if view == selected_view %}selected{% endif %}> {{ view }} </option>
+                    {% endfor %}
+                </select>
+                Atlas:
+                <select onchange="this.form.submit()" name="atlas" >
+                    {% for atlas in atlas_list %}
+                        <option value={{ atlas.id }} {% if atlas.id == selected_atlas.id %}selected{% endif %}> {{ atlas.name }} </option>
+                    {% endfor %}
+                </select>
+                {% if user.is_authenticated %}
+                    Zone:
+                {% endif %}
+                <select {% if not user.is_authenticated %} hidden {% endif %} onchange="this.form.submit()" name="zone" >
+                    <option value="-1"> Ninguno </option>
+                    {% for zone in zones_list %}
+                        <option value={{ zone.id }} {% if zone.id == selected_zone.id %}selected{% endif %}> {{ zone.name }} </option>
+                    {% endfor %}
+                </select>
+                <input id = "pos_x" hidden type="text" name="pos_x" value= {{ pos_x }} />
+                <input id = "pos_y" hidden type="text" name="pos_y" value= {{ pos_y }} />
+                <input id = "pos_z" hidden type="text" name="pos_z" value= {{ pos_z }} />
+            </form>
+            <a href="/zone?atlas={{ selected_atlas.id }}" class="btn btn-info" role="button">Add zone</a>
+        </div>
+        <br>
+        <div>
+            {% if top_atlas %}
+                <canvas title="Top image" id="canvas_top" width= {{ size_z }} height= {{ size_x }} ></canvas>
+            {% endif %}
+            {% if front_atlas %}
+                <canvas title= "Front image" id="canvas_front" width= {{ size_x }} height= {{ size_y }} ></canvas>
+            {% endif %}
+            {% if side_atlas %}
+                <canvas title="Side image" id="canvas_side" width= {{ size_z }} height= {{ size_y }} ></canvas>
+            {% endif %}
+            <script>
+
+                var canvas_top;
+                var ctx_top;
+                var canvas_front;
+                var ctx_front;
+                var canvas_sides;
+                var ctx_side;
+
+                var img_top;
+                var img_front;
+                var img_side;
+
+                var isDown=false;
+                var umbral=4;
+
+                var pos_x = {{ pos_x }};
+                var pos_y = {{ pos_y }};
+                var pos_z = {{ pos_z }};
+
+                var pos_x_form = document.getElementById('pos_x');
+                var pos_y_form = document.getElementById('pos_y');
+                var pos_z_form = document.getElementById('pos_z');
+                var atlas_form = document.getElementById('atlas_form');
+
+                var offsetXFront;
+                var offsetYFront;
+                var offsetXTop;
+                var offsetYTop;
+                var offsetXSide;
+                var offsetYSide;
+
+                window.onload=function() {
+
+                    canvas_top = document.getElementById('canvas_top');
+                    ctx_top = canvas_top.getContext("2d");
+                    canvas_front = document.getElementById('canvas_front');
+                    ctx_front = canvas_front.getContext("2d");
+                    canvas_side = document.getElementById('canvas_side');
+                    ctx_side = canvas_side.getContext("2d");
+
+                    offsetXFront=canvas_front.offsetLeft;
+                    offsetYFront=canvas_front.offsetTop;
+                    offsetXTop=canvas_top.offsetLeft;
+                    offsetYTop=canvas_top.offsetTop;
+                    offsetXSide=canvas_side.offsetLeft;
+                    offsetYSide=canvas_side.offsetTop;
+
+                    canvas_front.addEventListener('click',handleClickFront);
+                    canvas_side.addEventListener('click',handleClickSide);
+                    canvas_top.addEventListener('click',handleClickTop);
+
+                    atlas_top = new Image();
+                    atlas_side = new Image();
+                    atlas_front = new Image();
+
+                    atlas_front.src= "{{front_atlas }}";
+                    atlas_side.src= "{{side_atlas }}";
+                    atlas_top.src= "{{top_atlas }}";
+
+                    atlas_front.onload =function() { draw(); };
+                    atlas_side.onload =function() { draw(); };
+                    atlas_top.onload =function() { draw(); };
+
+                    draw();
+                }
+
+                function writeMessage(context, canvas, message) {
+                    context.font = '14pt Calibri';
+                    context.fillStyle = 'red';
+                    context.fillText(message, 10, 25);
+                }
+
+                function draw(){
+
+                    //clean the canvas
+                    ctx_front.clearRect(0,0,{{ size_x }},{{ size_y }});
+                    ctx_top.clearRect(0,0,{{ size_z }},{{ size_x }});
+                    ctx_side.clearRect(0,0,{{ size_z }},{{ size_y }});
+
+                    // draw the images
+                    //FRONT
+                    ctx_front.drawImage(atlas_front, 0, 0,atlas_front.width,atlas_front.height,0,0,{{ size_x }},{{ size_y }});
+
+                    var message = 'FRONT: ' + {{original_pos_x}} + 'x, ' + {{original_pos_y}} + 'y'
+                    ctx_front.font = '10pt Calibri';
+                    ctx_front.fillStyle = 'red';
+                    ctx_front.fillText(message, 5, 15);
+
+
+                    //TOP
+                    ctx_top.drawImage(atlas_top, 0, 0,atlas_top.width,atlas_top.height,0,0,{{ size_z }},{{ size_x }});
+
+                    var message = 'TOP: ' + {{original_pos_z}} + 'z, ' + {{original_pos_x}} + 'x'
+                    ctx_top.font = '10pt Calibri';
+                    ctx_top.fillStyle = 'red';
+                    ctx_top.fillText(message, 5, 15);
+
+                    //SIDE
+                    ctx_side.drawImage(atlas_side, 0, 0,atlas_side.width,atlas_side.height,0,0,{{ size_z }},{{ size_y }});
+
+                    var message = 'SIDE: ' + {{original_pos_z}} + 'z, ' + {{original_pos_y}} + 'y'
+                    ctx_side.font = '10pt Calibri';
+                    ctx_side.fillStyle = 'red';
+                    ctx_side.fillText(message, 5, 15);
+
+                    // draw position lines
+                    drawLines();
+                }
+
+                function drawLines() {
+                    //FRONT LINES
+                    ctx_front.beginPath();
+                    ctx_front.strokeStyle = 'red';
+                    ctx_front.moveTo(0,pos_y);
+                    ctx_front.lineTo({{size_x}},pos_y);
+                    ctx_front.moveTo(pos_x,0);
+                    ctx_front.lineTo(pos_x,{{size_y}});
+                    ctx_front.stroke();
+                    ctx_front.closePath();
+                    {% if max_x %}
+                    ctx_front.beginPath();
+                    ctx_front.strokeStyle = 'green';
+                    ctx_front.moveTo(0,{{ min_y }});
+                    ctx_front.lineTo({{size_x}},{{ min_y }});
+                    ctx_front.moveTo({{ min_x }},0);
+                    ctx_front.lineTo({{ min_x }},{{size_y}});
+                    ctx_front.moveTo(0,{{ max_y }});
+                    ctx_front.lineTo({{size_x}}, {{ max_y }});
+                    ctx_front.moveTo({{ max_x }},0);
+                    ctx_front.lineTo({{ max_x }},{{size_y}});
+                    ctx_front.stroke();
+                    ctx_front.closePath();
+                    {% endif %}
+                    //SIDE LINES
+                    ctx_side.beginPath();
+                    ctx_side.strokeStyle = 'red';
+                    ctx_side.moveTo(0,pos_y);
+                    ctx_side.lineTo({{size_z}},pos_y);
+                    ctx_side.moveTo(pos_z,0);
+                    ctx_side.lineTo(pos_z,{{size_z}});
+                    ctx_side.stroke();
+                    ctx_side.closePath();
+                    {% if max_x %}
+                    ctx_side.beginPath();
+                    ctx_side.strokeStyle = 'green';
+                    ctx_side.moveTo(0,{{min_y}});
+                    ctx_side.lineTo({{size_z}},{{min_y}});
+                    ctx_side.moveTo({{min_z}},0);
+                    ctx_side.lineTo({{min_z}},{{size_z}});
+                    ctx_side.moveTo(0,{{max_y}});
+                    ctx_side.lineTo({{size_z}},{{max_y}});
+                    ctx_side.moveTo({{max_z}},0);
+                    ctx_side.lineTo({{max_z}},{{size_z}});
+                    ctx_side.stroke();
+                    ctx_side.closePath();
+                    {% endif %}
+                    //TOP LINES
+                    ctx_top.beginPath();
+                    ctx_top.strokeStyle = 'red';
+                    ctx_top.moveTo(pos_z,0);
+                    ctx_top.lineTo(pos_z,{{size_x}});
+                    ctx_top.moveTo(0,pos_x);
+                    ctx_top.lineTo({{size_z}},pos_x);
+                    ctx_top.stroke();
+                    ctx_top.closePath();
+                    {% if max_x %}
+                    ctx_top.beginPath();
+                    ctx_top.strokeStyle = 'green';
+                    ctx_top.moveTo({{min_z}},0);
+                    ctx_top.lineTo({{min_z}},{{size_x}});
+                    ctx_top.moveTo(0,{{min_x}});
+                    ctx_top.lineTo({{size_z}},{{min_x}});
+                    ctx_top.moveTo({{max_z}},0);
+                    ctx_top.lineTo({{max_z}},{{size_x}});
+                    ctx_top.moveTo(0,{{max_x}});
+                    ctx_top.lineTo({{size_z}},{{max_x}});
+                    ctx_top.stroke();
+                    ctx_top.closePath();
+                    {% endif %}
+
+                }
+
+                function handleClickFront(e){
+
+                    var rect = canvas_front.getBoundingClientRect();
+                    mouseX=Math.round((e.clientX-rect.left)/(rect.right-rect.left)*{{size_x}});
+                    mouseY=Math.round((e.clientY-rect.top)/(rect.bottom-rect.top)*{{size_y}});
+                    {% if max_x %}
+                        if (mouseX>{{min_x}} && mouseX<{{max_x}} && mouseY>{{min_y}} && mouseY<{{max_y}}) {
+                            pos_x_form.value = mouseX;
+                            pos_y_form.value = mouseY;
+                            atlas_form.submit();
+                        }
+                    {% else %}
+                        pos_x_form.value = mouseX;
+                        pos_y_form.value = mouseY;
+                        atlas_form.submit();
+                    {% endif %}
+                }
+
+                function handleClickSide(e){
+                    mouseX=parseInt(e.clientX-offsetXSide);
+                    mouseY=parseInt(e.clientY-offsetYSide);
+                    {% if max_x %}
+                        if (mouseX>{{min_z}} && mouseX<{{max_z}} && mouseY>{{min_y}} && mouseY<{{max_y}}) {
+                            pos_z_form.value = mouseX;
+                            pos_y_form.value = mouseY;
+                            atlas_form.submit();
+                        }
+                    {% else %}
+                        pos_z_form.value = mouseX;
+                        pos_y_form.value = mouseY;
+                        atlas_form.submit();
+                    {% endif %}
+                }
+
+                function handleClickTop(e){
+                    mouseX=parseInt(e.clientX-offsetXTop);
+                    mouseY=parseInt(e.clientY-offsetYTop);
+                    {% if max_x %}
+                        if (mouseX>{{min_z}} && mouseX<{{max_z}} && mouseY>{{min_x}} && mouseY<{{max_x}}) {
+                            pos_z_form.value = mouseX;
+                            pos_x_form.value = mouseY;
+                            atlas_form.submit();
+                        }
+                    {% else %}
+                        pos_z_form.value = mouseX;
+                        pos_x_form.value = mouseY;
+                        atlas_form.submit();
+                    {% endif %}
+                }
+
+                </script>
+
+        </div>
+{% endblock %}

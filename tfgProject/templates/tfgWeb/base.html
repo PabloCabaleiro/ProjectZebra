@@ -4,14 +4,20 @@
 
 <html>
 
-    <title>tfgWeb</title>
-
     <head>
+        <link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/bootstrap/3.2.0/css/bootstrap.min.css">
+        <link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/bootstrap/3.2.0/css/bootstrap-theme.min.css">
+        <link rel="stylesheet" type=""text/css" href="/static/css/stylesheet.css">
+        <title>ZebraViewer</title>
         {% block title_block %}
         {% endblock %}
     </head>
     <body>
-        <div>
+        <div class="page-header">
+             <h1><a href="/">ZebraViewer</a></h1>
+        </div>
+
+        <div class="page-body">
             {% block body_block %}
             {% endblock %}
             </div>

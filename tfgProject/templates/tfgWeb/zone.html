@@ -1,0 +1,599 @@
+{% extends "tfgWeb/base.html" %}
+{% load staticfiles %}
+
+{% block title_block %}
+    <div>
+        <h1>tfgProject!</h1>
+        <br/>
+    </div>
+{% endblock %}
+
+{% block body_block %}
+        <div>
+            <form id="atlas_form" method="post" action="/zone/" enctype= multipart/form-dat>
+                {% csrf_token %}
+                Atlas:
+                <select onchange="this.form.submit()" name="atlas" >
+                    {% for atlas in atlas_list %}
+                        <option value={{ atlas.id }} {% if atlas.id == selected_atlas.id %}selected{% endif %}> {{ atlas.name }} </option>
+                    {% endfor %}
+                </select>
+                <input id = "pos_x" hidden type="text" name="pos_x" value= {{ pos_x }} />
+                <input id = "pos_y" hidden type="text" name="pos_y" value= {{ pos_y }} />
+                <input id = "pos_z" hidden type="text" name="pos_z" value= {{ pos_z }} />
+                min-max x:<input id = "min_x" type="text" name="min_x" value= {{ min_x }} readonly size="3"/>
+                <input id = "max_x" type="text" name="max_x" value= {{ max_x }} readonly size="3"/>
+                 min-max y:<input id = "min_y" type="text" name="min_y" value= {{ min_y }} readonly size="3"/>
+                <input id = "max_y" type="text" name="max_y" value= {{ max_y }} readonly size="3"/>
+                 min-max y:<input id = "min_z" type="text" name="min_z" value= {{ min_z }} readonly size="3"/>
+                <input id = "max_z" type="text" name="max_z" value= {{ max_z }} readonly size="3"/>
+            </form>
+            <form id="info_form" method="post" enctype= multipart/form-dat>
+                {% csrf_token %}
+                <input id = "min_x_save" hidden type="text" name="min_x" value= {{ original_min_x }} />
+                <input id = "max_x_save" hidden type="text" name="max_x" value= {{ original_max_x }} />
+                <input id = "min_y_save" hidden type="text" name="min_y" value= {{ original_min_y }} />
+                <input id = "max_y_save" hidden type="text" name="max_y" value= {{ original_max_y }} />
+                <input id = "min_z_save" hidden type="text" name="min_z" value= {{ original_min_z }} />
+                <input id = "max_z_save" hidden type="text" name="max_z" value= {{ original_max_z }} />
+                 <input id = "atlas_save" hidden type="text" name="atlas" value= {{selected_atlas.id}}/>
+                Nombre: <input id = "name_zone" type="text" name="name" value= "" size="30"/>
+                <button onclick="save()">Guardar</button>
+            </form>
+        </div>
+        <br>
+        <div>
+            {% if top_atlas %}
+                <canvas title="Top image" id="canvas_top" width= {{ size_z }} height= {{ size_x }} ></canvas>
+            {% endif %}
+            {% if front_atlas %}
+                <canvas title= "Front image" id="canvas_front" width= {{ size_x }} height= {{ size_y }} ></canvas>
+            {% endif %}
+            {% if side_atlas %}
+                <canvas title="Side image" id="canvas_side" width= {{ size_z }} height= {{ size_y }} ></canvas>
+            {% endif %}
+            <script>
+
+                var canvas_top;
+                var ctx_top;
+                var canvas_front;
+                var ctx_front;
+                var canvas_sides;
+                var ctx_side;
+
+                var img_top;
+                var img_front;
+                var img_side;
+
+                var isDown=false;
+                var umbral=4;
+
+                var pos_x = {{ pos_x }};
+                var pos_y = {{ pos_y }};
+                var pos_z = {{ pos_z }};
+
+                var max_x = {{ max_x }};
+                var max_y = {{ max_y }};
+                var max_z = {{ max_z }};
+
+                var min_x = {{ min_x }};
+                var min_y = {{ min_y }};
+                var min_z = {{ min_z }};
+
+                var hit_max_x = false;
+                var hit_max_y = false;
+                var hit_max_z = false;
+                var hit_min_x = false;
+                var hit_min_y = false;
+                var hit_min_z = false;
+
+                var prop_x = pos_x;
+                var prop_y = pos_y;
+                var prop_z = pos_z;
+
+                var pos_x_form = document.getElementById('pos_x');
+                var pos_y_form = document.getElementById('pos_y');
+                var pos_z_form = document.getElementById('pos_z');
+                var max_x_form = document.getElementById('max_x');
+                var max_y_form = document.getElementById('max_y');
+                var max_z_form = document.getElementById('max_z');
+                var min_x_form = document.getElementById('min_x');
+                var min_y_form = document.getElementById('min_y');
+                var min_z_form = document.getElementById('min_z');
+                var zone_info_form = document.getElementById('atlas_form');
+
+                var down = false;
+                var moved = false;
+
+                var offsetXFront;
+                var offsetYFront;
+                var offsetXTop;
+                var offsetYTop;
+                var offsetXSide;
+                var offsetYSide;
+
+                window.onload=function() {
+
+                    canvas_top = document.getElementById('canvas_top');
+                    ctx_top = canvas_top.getContext("2d");
+                    canvas_front = document.getElementById('canvas_front');
+                    ctx_front = canvas_front.getContext("2d");
+                    canvas_side = document.getElementById('canvas_side');
+                    ctx_side = canvas_side.getContext("2d");
+
+                    offsetXFront=canvas_front.offsetLeft;
+                    offsetYFront=canvas_front.offsetTop;
+                    offsetXTop=canvas_top.offsetLeft;
+                    offsetYTop=canvas_top.offsetTop;
+                    offsetXSide=canvas_side.offsetLeft;
+                    offsetYSide=canvas_side.offsetTop;
+
+                    canvas_front.addEventListener('mousedown',handleMouseDownFront);
+                    canvas_front.addEventListener('mousemove',handleMouseMoveFront);
+                    canvas_front.addEventListener('mouseup',handleMouseUpFront);
+                    canvas_front.addEventListener('mouseout',handleMouseOutFront);
+
+                    canvas_side.addEventListener('mousedown',handleMouseDownSide);
+                    canvas_side.addEventListener('mousemove',handleMouseMoveSide);
+                    canvas_side.addEventListener('mouseup',handleMouseUpSide);
+                    canvas_side.addEventListener('mouseout',handleMouseOutSide);
+
+                    canvas_top.addEventListener('mousedown',handleMouseDownTop);
+                    canvas_top.addEventListener('mousemove',handleMouseMoveTop);
+                    canvas_top.addEventListener('mouseup',handleMouseUpTop);
+                    canvas_top.addEventListener('mouseout',handleMouseOutTop);
+
+
+                    atlas_top = new Image();
+                    atlas_side = new Image();
+                    atlas_front = new Image();
+
+                    atlas_front.src= "{{front_atlas }}";
+                    atlas_side.src= "{{side_atlas }}";
+                    atlas_top.src= "{{top_atlas }}";
+
+                    atlas_front.onload =function() { draw(); };
+                    atlas_side.onload =function() { draw(); };
+                    atlas_top.onload =function() { draw(); };
+
+                    max_x_form.value = max_x;
+                    min_x_form.value = min_x;
+                    max_y_form.value = max_y;
+                    min_y_form.value = min_y;
+                    max_z_form.value = max_z;
+                    min_z_form.value = min_z;
+
+                    draw();
+                }
+
+                function save() {
+                    document.getElementById('max_x_save').value = max_x;
+                    document.getElementById('max_y_save').value = max_y;
+                    document.getElementById('max_z_save').value = max_z;
+                    document.getElementById('min_x_save').value = min_x;
+                    document.getElementById('min_y_save').value = min_y;
+                    document.getElementById('min_z_save').value = min_z;
+                    document.getElementById('atlas_save').value = {{selected_atlas.id}};
+                    document.getElementById('info_form').submit();
+                }
+
+                function writeMessage(context, canvas, message) {
+                    context.font = '14pt Calibri';
+                    context.fillStyle = 'red';
+                    context.fillText(message, 10, 25);
+                }
+
+                function getMousePos(canvas, e) {
+                    var rect = canvas.getBoundingClientRect();
+                    return {
+                      x: mouseX=parseInt(e.clientX-offsetXFront),
+                      y: parseInt(e.clientY-offsetYFront)
+                    };
+                }
+
+                function draw(){
+
+                    //clean the canvas
+                    ctx_front.clearRect(0,0,{{ size_x }},{{ size_y }});
+                    ctx_top.clearRect(0,0,{{ size_z }},{{ size_x }});
+                    ctx_side.clearRect(0,0,{{ size_z }},{{ size_y }});
+
+                    // draw the images
+                    //FRONT
+                    ctx_front.drawImage(atlas_front, 0, 0,atlas_front.width,atlas_front.height,0,0,{{ size_x }},{{ size_y }});
+
+                    var message = 'FRONT: ' + {{original_pos_x}} + 'x, ' + {{original_pos_y}} + 'y'
+                    ctx_front.font = '10pt Calibri';
+                    ctx_front.fillStyle = 'red';
+                    ctx_front.fillText(message, 5, 15);
+
+
+                    //TOP
+                    ctx_top.drawImage(atlas_top, 0, 0,atlas_top.width,atlas_top.height,0,0,{{ size_z }},{{ size_x }});
+
+                    var message = 'TOP: ' + {{original_pos_z}} + 'z, ' + {{original_pos_x}} + 'x'
+                    ctx_top.font = '10pt Calibri';
+                    ctx_top.fillStyle = 'red';
+                    ctx_top.fillText(message, 5, 15);
+
+                    //SIDE
+                    ctx_side.drawImage(atlas_side, 0, 0,atlas_side.width,atlas_side.height,0,0,{{ size_z }},{{ size_y }});
+
+                    var message = 'SIDE: ' + {{original_pos_z}} + 'z, ' + {{original_pos_y}} + 'y'
+                    ctx_side.font = '10pt Calibri';
+                    ctx_side.fillStyle = 'red';
+                    ctx_side.fillText(message, 5, 15);
+
+                    // draw position lines
+                    drawLines();
+                }
+
+                function drawLines() {
+                    //FRONT LINES
+                    ctx_front.beginPath();
+                    ctx_front.strokeStyle = "red";
+                    ctx_front.moveTo(0,pos_y);
+                    ctx_front.lineTo({{size_x}},pos_y);
+                    ctx_front.moveTo(pos_x,0);
+                    ctx_front.lineTo(pos_x,{{size_y}});
+                    ctx_front.stroke();
+                    ctx_front.closePath();
+                    ctx_front.beginPath();
+                    ctx_front.strokeStyle = "green";
+                    ctx_front.moveTo(0,min_y);
+                    ctx_front.lineTo({{size_x}},min_y);
+                    ctx_front.moveTo(min_x,0);
+                    ctx_front.lineTo(min_x,{{size_y}});
+                    ctx_front.moveTo(0,max_y);
+                    ctx_front.lineTo({{size_x}},max_y);
+                    ctx_front.moveTo(max_x,0);
+                    ctx_front.lineTo(max_x,{{size_y}});
+                    ctx_front.stroke();
+                    ctx_front.closePath();
+                    //SIDE LINES
+                    ctx_side.beginPath();
+                    ctx_side.strokeStyle = "red";
+                    ctx_side.moveTo(0,pos_y);
+                    ctx_side.lineTo({{size_z}},pos_y);
+                    ctx_side.moveTo(pos_z,0);
+                    ctx_side.lineTo(pos_z,{{size_z}});
+                    ctx_side.stroke();
+                    ctx_side.closePath();
+                    ctx_side.beginPath();
+                    ctx_side.strokeStyle = "green";
+                    ctx_side.moveTo(0,min_y);
+                    ctx_side.lineTo({{size_z}},min_y);
+                    ctx_side.moveTo(min_z,0);
+                    ctx_side.lineTo(min_z,{{size_z}});
+                    ctx_side.moveTo(0,max_y);
+                    ctx_side.lineTo({{size_z}},max_y);
+                    ctx_side.moveTo(max_z,0);
+                    ctx_side.lineTo(max_z,{{size_z}});
+                    ctx_side.stroke();
+                    ctx_side.closePath();
+                    //TOP LINES
+                    ctx_top.beginPath();
+                    ctx_top.strokeStyle = "red";
+                    ctx_top.moveTo(pos_z,0);
+                    ctx_top.lineTo(pos_z,{{size_x}});
+                    ctx_top.moveTo(0,pos_x);
+                    ctx_top.lineTo({{size_z}},pos_x);
+                    ctx_top.stroke();
+                    ctx_top.closePath();
+                    ctx_top.beginPath();
+                    ctx_top.strokeStyle = "green";
+                    ctx_top.moveTo(min_z,0);
+                    ctx_top.lineTo(min_z,{{size_x}});
+                    ctx_top.moveTo(0,min_x);
+                    ctx_top.lineTo({{size_z}},min_x);
+                    ctx_top.moveTo(max_z,0);
+                    ctx_top.lineTo(max_z,{{size_x}});
+                    ctx_top.moveTo(0,max_x);
+                    ctx_top.lineTo({{size_z}},max_x);
+                    ctx_top.stroke();
+                    ctx_top.closePath();
+
+                }
+
+                function handleMouseDownFront(e){
+                  var rect = canvas_front.getBoundingClientRect();
+                  var startX=parseInt(e.clientX-offsetXFront);
+                  var startY=parseInt(e.clientY-offsetYFront);
+                  if (startX>min_x-umbral && startX<min_x+umbral) {
+                    hit_min_x = true;
+                  } else if (startX>max_x-umbral && startX<max_x+umbral) {
+                    hit_max_x = true;
+                  } else if (startY>min_y-umbral && startY<min_y+umbral) {
+                    hit_min_y = true;
+                  } else if (startY>max_y-umbral && startY<max_y+umbral) {
+                    hit_max_y = true;
+                  }
+                  down = true;
+                }
+
+                function handleMouseDownSide(e){
+                  var rect = canvas_side.getBoundingClientRect();
+                  var startX=Math.round((e.clientX-rect.left)/(rect.right-rect.left)*{{size_z}});
+                  var startY=Math.round((e.clientY-rect.top)/(rect.bottom-rect.top)*{{size_y}});
+                  if (startX>min_z-umbral && startX<min_z+umbral) {
+                    hit_min_z = true;
+                  } else if (startX>max_z-umbral && startX<max_z+umbral) {
+                    hit_max_z = true;
+                  } else if (startY>min_y-umbral && startY<min_y+umbral) {
+                    hit_min_y = true;
+                  } else if (startY>max_y-umbral && startY<max_y+umbral) {
+                    hit_max_y = true;
+                  }
+                  down = true;
+                }
+
+                function handleMouseDownTop(e){
+                  var rect = canvas_top.getBoundingClientRect();
+                  var startX=Math.round((e.clientX-rect.left)/(rect.right-rect.left)*{{size_z}});
+                  var startY=Math.round((e.clientY-rect.top)/(rect.bottom-rect.top)*{{size_x}});
+                  if (startY>min_x-umbral && startY<min_x+umbral) {
+                    hit_min_x = true;
+                  } else if (startY>max_x-umbral && startY<max_x+umbral) {
+                    hit_max_x = true;
+                  } else if (startX>min_z-umbral && startX<min_z+umbral) {
+                    hit_min_z = true;
+                  } else if (startX>max_z-umbral && startX<max_z+umbral) {
+                    hit_max_z = true;
+                  }
+                  down = true;
+                }
+
+                function handleMouseUpFront(e){
+                  if (moved) {
+                    hit_max_x = false;
+                    hit_max_y = false;
+                    hit_min_x = false;
+                    hit_min_y = false;
+                    moved = false;
+                    draw();
+                  } else {
+                    mouseX=parseInt(e.clientX-offsetXFront);
+                    mouseY=parseInt(e.clientY-offsetYFront);
+
+                    //Actualiza posiciones max y min de cada eje para que el intervalo siempre contenga la posicion
+                    if (mouseX>max_x) {
+                        if (mouseX+(max_x-pos_x)> {{size_x}}) {
+                            max_x = parseInt(pos_x + (mouseX - {{size_x}})/2);
+                        } else {
+                            max_x = mouseX + (max_x-pos_x);
+                        }
+                    } else if (mouseX<min_x) {
+                        if (mouseX-(pos_x-min_x) < 0) {
+                            min_x = parseInt(mouseX/2);
+                        } else {
+                            min_x = mouseX -(pos_x-min_x);
+                        }
+                    } else if (mouseY>max_y) {
+                        if (mouseY+(max_y-pos_y)> {{size_y}}) {
+                            max_y = parseInt(pos_y + (mouseY - {{size_y}})/2);;
+                        } else {
+                            max_y = mouseY + (max_y-pos_y);
+                        }
+                    } else if (mouseY<min_y) {
+                        if (mouseY-(pos_y-min_y) < 0) {
+                            min_y = parseInt(mouseY/2);
+                        } else {
+                            min_y = mouseY -(pos_y-min_y);
+                        }
+                    }
+
+                    max_x_form.value = parseInt({{atlas_size_x}} * max_x/ {{size_x}});
+                    max_y_form.value = parseInt({{atlas_size_y}} * max_y/ {{size_y}});
+                    max_z_form.value = parseInt({{atlas_size_z}} * max_z/ {{size_z}});
+                    min_x_form.value = parseInt({{atlas_size_x}} * min_x/ {{size_x}});
+                    min_y_form.value = parseInt({{atlas_size_y}} * min_y/ {{size_y}});
+                    min_z_form.value = parseInt({{atlas_size_z}} * min_z/ {{size_z}});
+                    pos_x_form.value = mouseX;
+                    pos_y_form.value = mouseY;
+                    pos_z_form.value = pos_z;
+                    zone_info_form.submit();
+                  }
+                  down = false;
+                }
+
+                function handleMouseUpSide(e){
+                  if (moved) {
+                    hit_max_z = false;
+                    hit_max_y = false;
+                    hit_min_x = false;
+                    hit_min_z = false;
+                    moved = false;
+                  } else {
+                    mouseX=parseInt(e.clientX-offsetXSide);
+                    mouseY=parseInt(e.clientY-offsetYSide);
+
+                    //Actualiza posiciones max y min de cada eje para que el intervalo siempre contenga la posicion
+                    if (mouseX>max_z) {
+                        if (mouseX+(max_z-pos_z)> {{size_z}}) {
+                            max_z = parseInt(pos_z + (mouseX - {{size_z}})/2);
+                        } else {
+                            max_z = mouseX + (max_z-pos_z);
+                        }
+                    } else if (mouseX<min_z) {
+                        if (mouseX-(pos_z-min_z) < 0) {
+                            min_z = parseInt(mouseX/2);
+                        } else {
+                            min_z = mouseX -(pos_z-min_z);
+                        }
+                    } else if (mouseY>max_y) {
+                        if (mouseY+(max_y-pos_y)> {{size_y}}) {
+                            max_y = parseInt(pos_y + (mouseY - {{size_y}})/2);
+                        } else {
+                            max_y = mouseY + (max_y-pos_y);
+                        }
+                    } else if (mouseY<min_y) {
+                        if (mouseY-(pos_y-min_y) < 0) {
+                            min_y = parseInt(mouseY/2);
+                        } else {
+                            min_y = mouseY -(pos_y-min_y);
+                        }
+                    }
+
+                    max_x_form.value = parseInt({{atlas_size_x}} * max_x/ {{size_x}});
+                    max_y_form.value = parseInt({{atlas_size_y}} * max_y/ {{size_y}});
+                    max_z_form.value = parseInt({{atlas_size_z}} * max_z/ {{size_z}});
+                    min_x_form.value = parseInt({{atlas_size_x}} * min_x/ {{size_x}});
+                    min_y_form.value = parseInt({{atlas_size_y}} * min_y/ {{size_y}});
+                    min_z_form.value = parseInt({{atlas_size_z}} * min_z/ {{size_z}});
+                    pos_x_form.value = pos_x;
+                    pos_y_form.value = mouseY;
+                    pos_z_form.value = mouseX;
+                    zone_info_form.submit();
+                  }
+                  down = false;
+                }
+
+                function handleMouseUpTop(e){
+                  if (moved) {
+                    hit_max_x = false;
+                    hit_max_z = false;
+                    hit_min_x = false;
+                    hit_min_z = false;
+                    moved = false;
+                  } else {
+                    mouseX=parseInt(e.clientX-offsetXTop);
+                    mouseY=parseInt(e.clientY-offsetYTop);
+
+                    //Actualiza posiciones max y min de cada eje para que el intervalo siempre contenga la posicion
+                    if (mouseX>max_z) {
+                        if (mouseX+(max_z-pos_z)> {{size_z}}) {
+                            max_z = parseInt(pos_z + (mouseX - {{size_z}})/2);
+                        } else {
+                            max_z = mouseX + (max_z-pos_z);
+                        }
+                    } else if (mouseX<min_z) {
+                        if (mouseX-(pos_z-min_z) < 0) {
+                            min_z = parseInt(mouseX/2);
+                        } else {
+                            min_z = mouseX -(pos_z-min_z);
+                        }
+                    } else if (mouseY>max_x) {
+                        if (mouseY+(max_x-pos_x)> {{size_x}}) {
+                            max_x = parseInt(pos_x + (mouseY - {{size_x}})/2);
+                        } else {
+                            max_x = mouseY + (max_x-pos_x);
+                        }
+                    } else if (mouseY<min_x) {
+                        if (mouseY-(pos_x-min_x) < 0) {
+                            min_x = parseInt(mouseY/2);
+                        } else {
+                            min_x = mouseY -(pos_x-min_x);
+                        }
+                    }
+
+                    max_x_form.value = parseInt({{atlas_size_x}} * max_x/ {{size_x}});
+                    max_y_form.value = parseInt({{atlas_size_y}} * max_y/ {{size_y}});
+                    max_z_form.value = parseInt({{atlas_size_z}} * max_z/ {{size_z}});
+                    min_x_form.value = parseInt({{atlas_size_x}} * min_x/ {{size_x}});
+                    min_y_form.value = parseInt({{atlas_size_y}} * min_y/ {{size_y}});
+                    min_z_form.value = parseInt({{atlas_size_z}} * min_z/ {{size_z}});
+                    pos_x_form.value = mouseY;
+                    pos_y_form.value = pos_y;
+                    pos_z_form.value = mouseX;
+                    zone_info_form.submit();
+                  }
+                  down = false;
+                }
+
+                function handleMouseOutFront(e){
+                  if (down)
+                    handleMouseUpFront(e);
+                }
+
+                function handleMouseOutSide(e){
+                  if (down)
+                    handleMouseUpSide(e);
+                }
+
+                function handleMouseOutTop(e){
+                  if (down)
+                    handleMouseUpTop(e);
+                }
+
+                function handleMouseMoveFront(e){
+
+                    if (down) {
+                        moved=true;
+                        var rect = canvas_front.getBoundingClientRect();
+                        mouseX=Math.round((e.clientX-rect.left)/(rect.right-rect.left)*{{size_x}});
+                        mouseY=Math.round((e.clientY-rect.top)/(rect.bottom-rect.top)*{{size_y}});
+
+                        if (hit_min_x && mouseX<pos_x) {
+                            min_x = mouseX;
+                            min_x_form.value = parseInt({{atlas_size_x}}*mouseX/{{size_x}});
+                        } else if (hit_max_x && mouseX>pos_x) {
+                            max_x = mouseX;
+                            max_x_form.value = parseInt({{atlas_size_x}}*mouseX/{{size_x}})
+                        } else if (hit_min_y && mouseY<pos_y) {
+                            min_y = mouseY;
+                            min_y_form.value = parseInt({{atlas_size_y}}*mouseY/{{size_y}});
+                        } else if (hit_max_y && mouseY>pos_y) {
+                            max_y = mouseY;
+                            max_y_form.value = parseInt({{atlas_size_y}}*mouseY/{{size_y}});
+                        }
+                        if (down)
+                            draw();
+                    }
+                }
+
+                function handleMouseMoveSide(e){
+
+                    if (down) {
+                        moved=true;
+                        var rect = canvas_side.getBoundingClientRect();
+                        mouseX=Math.round((e.clientX-rect.left)/(rect.right-rect.left)*{{size_z}});
+                        mouseY=Math.round((e.clientY-rect.top)/(rect.bottom-rect.top)*{{size_y}});
+
+                        if (hit_min_z && mouseX<pos_z) {
+                            min_z = mouseX;
+                            min_z_form.value = parseInt({{atlas_size_z}}*mouseX/{{size_z}});
+                        } else if (hit_max_z && mouseX>pos_z) {
+                            max_z = mouseX;
+                            max_z_form.value = parseInt({{atlas_size_z}}*mouseX/{{size_z}});
+                        } else if (hit_min_y && mouseY<pos_y) {
+                            min_y = mouseY;
+                            min_y_form.value = parseInt({{atlas_size_y}}*mouseY/{{size_y}});
+                        } else if (hit_max_y && mouseY>pos_y) {
+                            max_y = mouseY;
+                            max_y_form.value = parseInt({{atlas_size_y}}*mouseY/{{size_y}});
+                        }
+                        if (down)
+                            draw();
+                    }
+                }
+
+                function handleMouseMoveTop(e){
+
+                    if (down) {
+                        moved=true;
+                        var rect = canvas_top.getBoundingClientRect();
+                        mouseX=Math.round((e.clientX-rect.left)/(rect.right-rect.left)*{{size_z}});
+                        mouseY=Math.round((e.clientY-rect.top)/(rect.bottom-rect.top)*{{size_x}});
+
+                        if (hit_min_z && mouseX<pos_z) {
+                            min_z = mouseX;
+                            min_z_form.value = parseInt({{atlas_size_z}}*mouseX/{{size_z}});
+                        } else if (hit_max_z && mouseX>pos_z) {
+                            max_z = mouseX;
+                            max_z_form.value = parseInt({{atlas_size_z}}*mouseX/{{size_z}});
+                        } else if (hit_min_x && mouseY<pos_x) {
+                            min_x = mouseY;
+                            min_x_form.value = parseInt({{atlas_size_x}}*mouseY/{{size_x}});
+                        } else if (hit_max_x && mouseY>pos_x) {
+                            max_x = mouseY;
+                            max_x_form.value = parseInt({{atlas_size_x}}*mouseY/{{size_x}});
+                        }
+                        if (down)
+                            draw();
+                    }
+                }
+
+                </script>
+
+        </div>
+{% endblock %}

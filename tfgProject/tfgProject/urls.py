@@ -10,4 +10,6 @@ urlpatterns = [
     url(r'^logout/$', views.user_logout, name='logout'),
     url(r'^info/$', views.info, name='info'),
     url(r'^experiment/$', views.experiment, name='experiment'),
+    url(r'^zone/$', views.choose_zone, name='choose zone'),
+    url(r'^atlas/$', views.atlas, name='atlas'),
 ]

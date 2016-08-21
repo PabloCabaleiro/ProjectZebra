@@ -9,6 +9,16 @@ from django.db.models import Q
 
 AUTH_USER_MODEL = getattr(settings, 'AUTH_USER_MODEL', 'auth.User')
 
+class Zone(models.Model):
+    name = models.CharField(max_length=128)
+    owner = models.ForeignKey(AUTH_USER_MODEL)
+    max_x = models.IntegerField(default=0)
+    min_x = models.IntegerField(default=0)
+    max_y = models.IntegerField(default=0)
+    min_y = models.IntegerField(default=0)
+    max_z = models.IntegerField(default=0)
+    min_z = models.IntegerField(default=0)
+
 class Experiment(models.Model):
     name = models.CharField(max_length=128)
     owner = models.ForeignKey(AUTH_USER_MODEL, null=True)
@@ -33,7 +43,6 @@ class Experiment(models.Model):
     def add_series(self, name, times, size_x, size_y, size_z):
         return Galery.objects.get_or_create(experiment=self, name=name, total_times=times, x_size=size_x, y_size= size_y, z_size=size_z)[0]
 
-
 class Galery(models.Model):
 
     experiment = models.ForeignKey(Experiment)
@@ -43,64 +52,25 @@ class Galery(models.Model):
     y_size = models.IntegerField(default=0)
     z_size = models.IntegerField(default=0)
 
-    def add_sample(self, name, scale_value):
-
-        x_size = int(self.x_size/scale_value)
-        y_size = int(self.y_size /scale_value)
-        z_size = int(self.z_size /scale_value)
-        name = name
-
-        return Sample.objects.get_or_create(galery=self, name=name, x_size=x_size, y_size=y_size, z_size=z_size)[0]
+    def add_axis(self, name):
+        return Axis.objects.get_or_create(galery=self, name=name)[0]
 
     def check_atlas(self):
         return self.is_atlas
 
-    def get_sample(self, muestra_key):
-
-        muestra =  Sample.objects.get(Q(galery=self) & Q(name=muestra_key))
-        return muestra
-
-    def get_samples(self):
-        return Sample.objects.filter(Q(galery=self)).order_by('-x_size')
-
-    def get_axis(self, muestra_key, axis_name):
-        return self.get_sample(muestra_key).get_axis(axis_name)
-
-    def get_image(self, muestra_key, axis_name, pos, time):
-        return self.get_sample(muestra_key).get_image(axis_name,pos,time)
-
-    def get_matrix(self, muestra_key):
-        return Sample.objects.get(Q(serie=self) & Q(name=muestra_key)).get_matrix()
-
-    def __str__(self):
-        return self.name
-
-class Sample(models.Model):
-
-    galery = models.ForeignKey(Galery)
-    name = models.CharField(max_length=128)
-    x_size = models.IntegerField(default=0)
-    y_size = models.IntegerField(default=0)
-    z_size = models.IntegerField(default=0)
-
-    def add_axis(self, name):
-        axis = Axis.objects.get_or_create(name=name, sample=self)[0]
-        axis.save()
-        return axis
-
     def get_axis(self, axis_name):
-        return Axis.objects.get(Q(sample=self) & Q(name=axis_name))
+        return Axis.objects.get(Q(galery=self) & Q(name=axis_name))
 
     def get_image(self, axis_name, pos, time):
         return self.get_axis(axis_name).get_image(pos,time)
 
     def __str__(self):
-        return self.galery.__str__() + " quality " + self.name
+        return self.name
 
 class Axis(models.Model):
 
     name = models.CharField(max_length=2)
-    sample = models.ForeignKey(Sample)
+    galery = models.ForeignKey(Galery)
 
     def add_image(self, image, pos, time):
         im = Image.objects.get_or_create(axis=self, image=image, pos=pos, time=time)[0]
@@ -148,3 +118,13 @@ def get_experiment(experiment_id):
 def get_atlas():
     return Experiment.objects.get(is_atlas=True).get_galerys()
 
+def add_experiment(name, info, user, is_atlas, front_axis, top_axis, side_axis):
+    experiment = Experiment.objects.get_or_create(owner=user, name=name, info= info, is_atlas=is_atlas, front_axis=front_axis, side_axis=side_axis, top_axis=top_axis)[0]
+    return experiment
+
+def add_zone(name, owner, x_max, x_min, y_max, y_min, z_max, z_min):
+    zone = Zone.objects.get_or_create(name=name, owner=owner, max_x=x_max, min_x=x_min, max_y=y_max, min_y=y_min, max_z=z_max, min_z=z_min)[0]
+    return zone
+
+def get_zones():
+    return Zone.objects.all()

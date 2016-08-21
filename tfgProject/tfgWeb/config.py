@@ -13,19 +13,6 @@ TYPE = '.png'
 
 ADMIN_NAME = 'default'
 
-RESIZE_VALUE = 3
-RESIZE_VALUE_ATLAS = 3
-
-RESOLUTIONS = {
-    'HIGH': 1,
-    'MEDIUM': 2,
-    'LOW':3,
-}
-
-RESOLUTIONS_ATLAS = {
-    'HIGH': 1,
-}
-
 AXIS = {
     'X': 0,
     'Y': 1,
@@ -45,4 +32,21 @@ ORDERS = {
     'XZY': 'FRONT-X, TOP-Z, SIDE-Y',
     'YXZ': 'FRONT-Y, TOP-X, SIDE-Z',
     'YZX': 'FRONT-Y, TOP-Z, SIDE-X',
+}
+
+DEFAULT_SIZES = {
+    'X': 333,
+    'Y': 333,
+    'Z': 533,
+}
+
+VISTAS_ANON = {
+    'BRAIN': 'Brain',
+    'ATLAS':'Atlas',
+}
+
+VISTAS_AUTH = {
+    'BRAIN': 'Brain',
+    'ATLAS':'Atlas',
+    'SYNC':'Sincronize',
 }
