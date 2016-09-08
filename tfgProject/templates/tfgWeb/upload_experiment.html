@@ -1,0 +1,55 @@
+{% extends 'tfgWeb/base.html' %}
+
+{% load staticfiles %}
+
+{% block title_block %}
+{% endblock %}
+
+{% block body_block %}
+    {% if message %}
+        <em id="message2"> {{message}} </em>
+    {% endif %}
+
+    <div class="login-forms">
+         <form id="upload_form" method="post" action="/upload/" enctype= multipart/form-data>
+            {% csrf_token %}
+            {{ upload_form.file }}
+             <br>
+            Top axis:
+            <select name="top_axis" >
+                <option  value='X' > X </option>
+                <option  value='Y' > Y </option>
+                <option  value='Z' > Z </option>
+            </select>
+             <br>
+             Front axis:
+            <select name="front_axis" >
+                <option  value='Y' > Y </option>
+                <option  value='X' > X </option>
+                <option  value='Z' > Z </option>
+            </select>
+             <br>
+             Side axis:
+            <select name="side_axis" >
+                <option  value='Z' > Z </option>
+                <option  value='X' > X </option>
+                <option  value='Y' > Y </option>
+            </select>
+            <br>
+            <button onclick="custom_submit()"> Save </button>
+        </form>
+        <em id="message" hidden>This may take a few minuts...</em>
+    </div>
+<script>
+    var message = document.getElementById('message');
+    var message2 = document.getElementById('message2');
+
+    function custom_submit() {
+        message.hidden = false;
+        message2.hidden = true;
+        window.submit();
+    }
+
+</script>
+
+{% endblock %}

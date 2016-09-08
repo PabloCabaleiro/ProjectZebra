@@ -3,64 +3,65 @@
 {% load staticfiles %}
 
 {% block title_block %}
-    <div>
-        <h1>tfgProject!</h1>
-        <br/>
-    </div>
 {% endblock %}
 
 {% block body_block %}
-        <div>
-            {% if request.user.is_authenticated %}
-                <form id="upload_form" method="post" action="/tfgWeb/" enctype= multipart/form-data>
+        {% if not experiment.is_atlas %}
+            <div class="info-forms">
+                <form id="name_form" method="post" action="/info/?experiment={{experiment.id}}" enctype= multipart/form-dat>
                     {% csrf_token %}
-                    {{ upload_form.file }}
-                    <input type="submit" value="upload" />
+                    Name:
+                    <input id="name" size="30" maxlength="150" name="name" type="text" value="{{experiment.name}}"\>
+                    <input type="submit" value="Update">
                 </form>
-                <br>
-            {% endif %}
-        </div>
-        <div>
-            {% if series %}
-                <form id="info_form" method="post" action="/tfgWeb/" enctype= multipart/form-dat>
+                <form action="/info/?experiment={{experiment.id}}" method="post" name="delete_form">
                     {% csrf_token %}
-                    Series:
-                    <select name="serie" >
-                        {% for serie in series %}
-                            <option value={{ serie.id }} {% if serie.id == selected_serie.id %}selected{% endif %}> {{ serie.name }} </option>
-                        {% endfor %}
-                    </select>
-                    Atlas:
-                    <select name="atlas" >
-                        {% for atlas in atlas_list %}
-                            <option value={{ atlas.id }} {% if atlas.id == selected_atlas.id %}selected{% endif %}> {{ atlas.name }} </option>
-                        {% endfor %}
-                    </select>
-                    Calidad:
-                    <select name="muestra" >
-                        {% for muestra in muestras %}
-                            <option value={{ muestra}} {% if muestra == muestra_atlas %}selected{% endif %}> {{ muestra }} </option>
-                        {% endfor %}
-                    </select>
-                    Time: <input name="time" type="number" size="5" value= {{ time }} max= {{ selected_serie.total_times }} min="0" />
-                    x = <input type="text" name="pos_x" value= {{ pos_x }}  size="5" />
-                    y = <input title="y" type="text" name="pos_y" value={{ pos_y }} size="5" />
-                    z = <input title="z" type="text" name="pos_z" value={{ pos_z }} size="5" />
-                    <input type="submit" value="actualizar" />
+                    <input  input name="delete" hidden value="False">
+                    <input type="submit" name="delete" value="Delete">
                 </form>
-            {% endif %}
-        </div>
-        <br>
-        <div>
-            {% if front_image %}
-                <img title="Front image" src={{ front_image }} />
-            {% endif %}
-            {% if top_image %}
-                <img title="Top image" src={{ top_image }} />
-            {% endif %}
-            {% if side_image %}
-                <img title="Side image" src={{ side_image }} />
-            {% endif %}
-
-        </div>
+            </div>
+        {%endif%}
+        <table id="table">
+            <caption class="table-title">Info about the experiment</caption>
+            <col width="150">
+            <col width="400">
+            <tr class="head_row">
+                <th>Attribute</th>
+                <th>Value</th>
+            </tr>
+            <tr>
+                <th>Name</th>
+                <th>{{experiment.name}}</th>
+            </tr>
+            <tr>
+                <th>Side axis</th>
+                <th>{{experiment.side_axis}}</th>
+            </tr>
+            <tr>
+                <th>Top axis</th>
+                <th>{{experiment.top_axis}}</th>
+            </tr>
+            <tr>
+                <th>Front axis</th>
+                <th>{{experiment.front_axis}}</th>
+            </tr>
+            <tr>
+                <th>Atlas</th>
+                <th>{{experiment.is_atlas}}</th>
+            </tr>
+            {%for serie in metadata_list%}
+                {%for key, value in serie.items %}
+                    {%if key == 'Name' %}
+                        <tr class="expecial_row">
+                            <th colspan = "2">{{value}}</th>
+                        </tr>
+                    {%else%}
+                        <tr>
+                            <th>{{key}}</th>
+                            <th>{{value}}</th>
+                        </tr>
+                    {%endif%}
+                {%endfor%}
+            {%endfor%}
+        </table>
 {% endblock %}

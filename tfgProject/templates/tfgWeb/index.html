@@ -3,40 +3,32 @@
 {% load staticfiles %}
 
 {% block title_block %}
-    <div>
-        <h1>tfgProject! Choose your experiment!</h1>
-        {% if request.user.is_authenticated %}
-            Welcome, '{{ request.user.username }}'
-            <li><a href="/logout/">Log out</a></li>
-        {% else %}
-            <li><a href="/register/">Register</a></li>
-            <li><a href="/login/">Login</a></li>
-        {% endif %}
-    </div>
 {% endblock %}
 
 {% block body_block %}
-        <div>
+        <div class="info-forms">
             {% if request.user.is_authenticated %}
-                <form id="upload_form" method="post" action="/tfgWeb/" enctype= multipart/form-data>
-                    {% csrf_token %}
-                    {{ upload_form.file }}
-                    Order:
-                    <select name="order" >
-                        {% for order in orders %}
-                            <option  value={{ order }} > {{ order }} </option>
-                        {% endfor %}
-                    </select>
-                    <input type="submit" value="upload" />
-                </form>
-                <br>
+                <button onclick="call_upload()"> Add experiment </button>
             {% endif %}
         </div>
-        <div>
+        <div class="experiment-list">
             {% for experiment in experiment_list %}
                 <h2>{{experiment.name}}</h2>
-                <a class="btn-link" href="/info/?experiment={{ experiment.id }}">Info</a>
-                <a class="btn-link" href="/experiment/?experiment={{ experiment.id }}">Experiment</a>
+                <a class="btn-link" href="/info/?experiment={{ experiment.id }}">About</a>
+                <a class="btn-link" href="/experiment/?experiment={{ experiment.id }}">Watch Experiment</a>
             {% endfor %}
         </div>
+        <div class="atlas-list">
+            {% for atlas in atlas_list %}
+                <h2>{{atlas.name}}</h2>
+                <a class="btn-link" href="/info/?experiment={{ atlas_experiment.id }}">About</a>
+                <a class="btn-link" href="/experiment/?atlas={{ atlas_experiment.id }}">Watch Atlas</a>
+            {% endfor %}
+        </div>
+<script>
+    function call_upload() {
+        window.location.assign("/upload/");
+    }
+
+</script>
 {% endblock %}

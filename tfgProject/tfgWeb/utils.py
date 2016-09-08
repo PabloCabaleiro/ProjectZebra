@@ -10,6 +10,8 @@ from xml import etree as et
 from tfgWeb import config, models
 from models import Galery
 import gc
+import json
+from time import time
 
 VM_ON = False
 VM_KILLED = False
@@ -82,8 +84,9 @@ def get_sizes_lif(reader):
     size_x = reader.getSizeX()
     size_y = reader.getSizeY()
     size_z = reader.getSizeZ()
+    size_c = reader.getSizeC()
     size_t = reader.getSizeT()
-    return size_x, size_y, size_z, size_t
+    return size_x, size_y, size_z, size_c, size_t
 
 def get_name_lif(filename):
 
@@ -97,7 +100,7 @@ def get_name_lif(filename):
 
     return names
 
-def get_z_rescaled_matrix(image5d, bf_reader, shape, sizesXYZ):  # Returns proportional image5d
+def get_rescaled_matrix(image5d, bf_reader, shape, sizesXYZ):  # Returns proportional image5d
 
     """
         Input:
@@ -112,46 +115,29 @@ def get_z_rescaled_matrix(image5d, bf_reader, shape, sizesXYZ):  # Returns propo
     print "     Creating the z rescaled array... "
 
     # Adjust the z size of the array
-    shape[2] = int(np.trunc(shape[2] * sizesXYZ[2] / sizesXYZ[0]))  # Change z dim size
+    shape[0] = int(np.trunc(shape[0] * sizesXYZ[0])) # Change x dim size
+    shape[2] = int(np.trunc(shape[2] * sizesXYZ[2]))  # Change z dim size
 
-    rescaled_image5d = np.empty(shape, dtype=BF2NP_DTYPE[bf_reader.rdr.getPixelType()])
+    aux_image5d = np.empty(shape, dtype=BF2NP_DTYPE[bf_reader.rdr.getPixelType()])
 
     for time in range(0, shape[4]):
         for pos_y in range(0, shape[1]):
             aux_image = Image.fromarray(image5d[:, pos_y, :, :, time].astype('uint8'))
-            rescaled_image5d[:, pos_y, :, :, time] = aux_image.resize((shape[2], shape[0]), Image.LANCZOS)
+            aux_image5d[:, pos_y, :, :, time] = aux_image.resize((shape[2], shape[0]), Image.LANCZOS)
+
+    shape[1] = int(np.trunc(shape[1] * sizesXYZ[1])) # Change y dim size
+    shape[3] = 4  #RGBA
+    rescaled_image5d = np.empty(shape, dtype=BF2NP_DTYPE[bf_reader.rdr.getPixelType()])
+
+    for time in range(0, shape[4]):
+        for pos_x in range(0, shape[0]):
+            aux_image = Image.fromarray(aux_image5d[pos_x, :, :, :, time].astype('uint8'))
+            # Add alpha channel
+            mask = aux_image.convert('L')
+            aux_image.putalpha(mask)
+            rescaled_image5d[pos_x, :, :, :, time] = aux_image.resize((shape[2], shape[1]), Image.LANCZOS)
 
     return rescaled_image5d
-
-def rescale_matrix(matrix, resolution):
-
-    print "     -Rescalando matriz con resolucion " + str(resolution)
-
-    if (not resolution == 1):
-        shape = np.shape(matrix)
-        aux_shape = [np.round(shape[0] / resolution), np.round(shape[1] / resolution),shape[2], shape[3]+1,shape[4]]
-        rescaled_shape = [np.round(shape[0]/resolution),np.round(shape[1]/resolution),np.round(shape[2]/resolution),shape[3]+1,shape[4]]
-
-        aux_matrix = np.empty(aux_shape)
-        rescaled_matrix = np.empty(rescaled_shape)
-
-        for time in range(0,aux_shape[4]):
-            for z in range(0,aux_shape[2]):
-                image = PILImage.fromarray(matrix[:,:,z,:,time].astype('uint8'))
-                image = image.resize((aux_shape[0], aux_shape[1]), Image.LANCZOS)
-                image = image.convert('RGBA')
-                aux_matrix[:,:,z,:,time] = np.array(image)
-                image.close()
-            for x in range(0,rescaled_shape[0]):
-                image =PILImage.fromarray(aux_matrix[x,:,:,:,time].astype('uint8'))
-                image = image.resize((rescaled_shape[2],rescaled_shape[1]), Image.LANCZOS)
-                image = image.convert('RGBA')
-                rescaled_matrix[x,:,:,:,time] = np.array(image)
-                image.close()
-
-        return rescaled_matrix
-    else:
-        return matrix
 
 def get_name_experiment(filename):
     parts = filename.split('/')
@@ -161,35 +147,89 @@ def get_name_experiment(filename):
 
 def get_matrix(bf_reader, shape, serieID=0):
 
+    #tiempo_inicial = time()
+
     try:
         image5d = np.empty(shape, dtype=BF2NP_DTYPE[bf_reader.rdr.getPixelType()])
     except:
         raise MemoryError("The matrix is too big. Try with H5 format for larger files")
 
-    for time in range(0, shape[4]):
+    for t in range(0, shape[4]):
         for pos_z in range(0, shape[2]):
-            image5d[:, :, pos_z, :, time] = bf_reader.read(series=serieID, c=None, z=pos_z, t=time,
+            image5d[:, :, pos_z, :, t] = bf_reader.read(series=serieID, c=None, z=pos_z, t=t,
                                                                    rescale=False)
+
+    #print 'Original sizes in the file: ', shape
     sizesXYZ, shapeXYZ = get_series_scale_lif(bf_reader.rdr, serieID)
 
-    final_image5d = get_z_rescaled_matrix(image5d, bf_reader, shape, sizesXYZ)
+    #print 'Physical sizes: ', sizesXYZ
+
+    final_image5d = get_rescaled_matrix(image5d, bf_reader, shape, sizesXYZ)
+
+    print 'Final sizes: ', np.shape(final_image5d)
+
+    #tiempo_final = time()
+    #tiempo_ejecucion = tiempo_final - tiempo_inicial
+    #print 'Time used to create the matrix (seconds): ', tiempo_ejecucion
+
 
     return final_image5d
 
-def get_image_sizes(size_x, size_y, size_z, original_width,  original_height,  original_depth, scale_factor=1):
+#Aux for views
 
-    width = int(original_width/scale_factor)
-    height = int(original_height/scale_factor)
-    depth = int(original_depth/scale_factor)
+def get_image_sizes(atlas_size_x, atlas_size_y, atlas_size_z, galery, scale_factor=1):
 
-    if (width<size_x and height<size_y and depth<size_z):
+    #Axis in the galery
+    front = galery.experiment.front_axis
+    side = galery.experiment.side_axis
+
+    #Transform to the axis on the view -> front: z. top: y, side: x.
+    if front == 'X':
+        depth = int(galery.x_size/scale_factor)
+        if side == 'Y':
+            width = int(galery.y_size/scale_factor)
+            height = int(galery.z_size/scale_factor)
+        else:
+            width = int(galery.z_size / scale_factor)
+            height = int(galery.y_size / scale_factor)
+    elif front == 'Y':
+        depth = int(galery.y_size / scale_factor)
+        if side == 'X':
+            width = int(galery.x_size / scale_factor)
+            height = int(galery.z_size / scale_factor)
+        else:
+            width = int(galery.z_size / scale_factor)
+            height = int(galery.x_size / scale_factor)
+    else:
+        depth = int(galery.z_size / scale_factor)
+        if side == 'X':
+            width = int(galery.x_size / scale_factor)
+            height = int(galery.y_size / scale_factor)
+        else:
+            width = int(galery.y_size / scale_factor)
+            height = int(galery.x_size / scale_factor)
+
+    if (width<atlas_size_x and height<atlas_size_y and depth<atlas_size_z):
         image_sizes = {}
         image_sizes['X']=width
         image_sizes['Y']=height
         image_sizes['Z']=depth
         return image_sizes
     else:
-        return get_image_sizes(size_x,size_y,size_z,original_width,original_height,original_depth,scale_factor+1)
+        return get_image_sizes(atlas_size_x,atlas_size_y,atlas_size_z,galery,scale_factor+1)
+
+def hit_experiment(pos_x,pos_y,pos_z, galery):
+    x = False
+    y = False
+    z = False
+    if (pos_x>=galery.start_x and pos_x<= galery.start_x+galery.width):
+        x = True
+    if (pos_y>=galery.start_y and pos_y<= galery.start_y+galery.height):
+        y = True
+    if (pos_z>=galery.start_z and pos_z<= galery.start_z+galery.depth):
+        z = True
+
+    return x and y and z
 
 
 #Getting images from matrix
@@ -257,57 +297,41 @@ def read_series(experiment, user, bf_reader, serieID=0, name=""):  # Reads a ser
     aux_order = 'XYZCT'
     shape = [getattr(reader, "getSize" + s)() for s in aux_order]  # Contains the 5D matrix sizes in order
 
-    resolutions = config.RESOLUTIONS.items()
     axis_list = config.AXIS.items()
     print " -Getting matrix"
-    matrix = get_matrix(bf_reader,shape,serieID)
+    matrix = get_matrix(bf_reader, shape, serieID)
     final_shape = np.shape(matrix)
-
     serie = experiment.add_series(name, total_times, final_shape[0], final_shape[1], final_shape[2])
 
-    for resolution in resolutions:
+    for axis in axis_list:
+        print " -Almacenando axis " + axis[0]
+        axis_model = serie.add_axis(axis[0])
 
-        muestra = serie.add_sample(resolution[0],resolution[1])
-        print " -Almacenado muestra " + str(muestra.__str__())
+        for time in range(0, shape[4]):
+            for pos in range(0, final_shape[axis[1]]):
+                if axis[0] == 'Y':
+                    image = PILImage.fromarray(matrix[:, pos, :, :, time].astype('uint8')).convert('RGBA')
+                elif axis[0] == 'X':
+                    image = PILImage.fromarray(
+                        np.swapaxes(PILImage.fromarray(matrix[pos, :, :, :, time].astype('uint8')), 0, 1).astype(
+                            'uint8')).convert('RGBA')  # Girar TOP IMAGE
+                elif axis[0] == 'Z':
+                    image = PILImage.fromarray(matrix[:, :, pos, :, time].astype('uint8')).convert('RGBA')
 
-        if resolution[1] != 1:
-            rescaled_matrix = rescale_matrix(matrix, resolution[1])
-        else:
-            rescaled_matrix = matrix
+                path = config.IMAGES_PATH + str(user.id) + '/' + str(experiment.id) + '/' + name + '/' + axis[0] + '/'
 
-        rescaled_shape = np.shape(rescaled_matrix)
+                if not os.path.exists(path):
+                    os.makedirs(path)
+                image_path = path + str(pos) + '-' + str(time) + config.TYPE
+                print '     -' + image_path
+                image.save(image_path)
+                image.close()
 
-        for axis in axis_list:
-            print "     -Almacenando axis " + axis[0]
-            axis_model = muestra.add_axis(axis[0])
-
-            for time in range(0, shape[4]):
-                for pos in range(0, rescaled_shape[axis[1]]):
-                    if axis[0]==experiment.top_axis:
-                        image = PILImage.fromarray(rescaled_matrix[:, pos, :, :, time].astype('uint8')).convert('RGBA')
-                    elif axis[0]==experiment.side_axis:
-                        image = PILImage.fromarray(np.swapaxes(PILImage.fromarray(rescaled_matrix[pos, :, :, :, time].astype('uint8')),0,1).astype('uint8')).convert('RGBA') #Girar TOP IMAGE
-                    elif axis[0]==experiment.front_axis:
-                        image = PILImage.fromarray(rescaled_matrix[:, :, pos, :, time].astype('uint8')).convert('RGBA')
-
-                    #Add alpha channel
-                    aux_image = image.convert('L')
-                    image.putalpha(aux_image)
-
-                    path = config.IMAGES_PATH + str(user.id) + '/' + experiment.name + '/' + name + '/' + muestra.name + '/'  + axis[0] + '/'
-
-                    if not os.path.exists(path):
-                        os.makedirs(path)
-                    image_path = path + str(pos) + '-' + str(time) + config.TYPE
-                    print '         -' + image_path
-                    image.save(image_path)
-                    image.close()
-
-                    axis_model.add_image(image_path, pos, time)
+                axis_model.add_image(image_path, pos, time)
 
     gc.collect()
 
-def save_lif(filename, user, order):
+def save_lif(filename, user, top_axis, side_axis, front_axis, is_atlas=False):
 
     # Checking VM
     check_VM()
@@ -316,26 +340,62 @@ def save_lif(filename, user, order):
     total_series = get_total_series_lif(bf_reader.rdr)
     names = get_name_lif(filename)
     name = get_name_experiment(filename)
-    experiment = models.add_experiment(name=name, info=None, user=user, is_atlas=False, top_axis=order[1], side_axis=order[2],
-                                front_axis=order[0])
+    metadata = get_metadata_lif(filename)
+    experiment = models.add_experiment(name=name, info=metadata, user=user, is_atlas=is_atlas, top_axis=top_axis, side_axis=side_axis,
+                                front_axis=front_axis)
 
     for serieID in range(0, total_series):
-        print 'Loading serie: ' + names[serieID]
         read_series(experiment=experiment, bf_reader=bf_reader, user=user, serieID=serieID, name=names[serieID])
 
     kill_VM()
 
+def get_metadata_lif(filename):
+
+    check_VM()
+
+    xml_string = bf.get_omexml_metadata(filename).encode("utf-8")
+
+    metadata = []
+    size_tags = ['Size' + c for c in 'XYZCT']
+    res_tags = ['PhysicalSize' + c for c in 'XYZ']
+    metadata_root = et.ElementTree.fromstring(xml_string)
+    for child in metadata_root:
+        if child.tag.endswith('Image'):
+            aux_dict = {}
+            aux_dict['Name'] = child.attrib['Name']
+            for grandchild in child:
+
+                if grandchild.tag.endswith('AcquisitionDate'):
+                    aux_dict['AcquisitionDate'] = grandchild.text
+                elif grandchild.tag.endswith('InstrumentRef'):
+                    instrumentID = grandchild.attrib['ID']
+                    for aux_child in metadata_root:
+                        if aux_child.tag.endswith('Instrument'):
+                            if aux_child.attrib['ID'] == instrumentID:
+                                for aux_grandchild in aux_child:
+                                    if aux_grandchild.tag.endswith('Microscope'):
+                                        aux_dict['Instrument'] = aux_grandchild.attrib['Model']
+                if grandchild.tag.endswith('Pixels'):
+                    att = grandchild.attrib
+                    for tag in size_tags:
+                        aux_dict[tag] = int(att[tag])
+                    for tag in res_tags:
+                        aux_dict[tag] = float(att[tag])
+            metadata.append(aux_dict)
+
+    return json.dumps(metadata)
+
 #Reading Series h5
 
-def save_h5(filename, user, order):
+def save_h5(filename, user, top_axis, side_axis, front_axis, is_atlas=False):
 
     name = get_name_experiment(filename)
-    experiment = models.add_experiment(user=user, info=None, name=name, is_atlas=False, front_axis=order[0], top_axis=order[1],
-                                side_axis=order[2])
+    metadata = str(get_h5_metadata(filename))
+    experiment = models.add_experiment(user=user, info=metadata, name=name, is_atlas=is_atlas, top_axis=top_axis, side_axis=side_axis,
+                                front_axis=front_axis)
 
     with h5py.File(filename, 'r') as hf:
         groups_list = hf.keys()
-
         for group_key in groups_list:
             dataset_list = hf[group_key]
             for dataset_key in dataset_list:
@@ -344,46 +404,53 @@ def save_h5(filename, user, order):
                 atlas = dataset[:, :, :]
                 shape = np.shape(atlas)
 
-                series_model = experiment.add_series(name=dataset_key, times=0, size_x=shape[0], size_y=shape[1],
-                                                   size_z=shape[2])
+                atlas_model = experiment.add_atlas(name=dataset_key, size_x=shape[0], size_y=shape[1], size_z=shape[2])
 
-                resolutions = config.RESOLUTIONS.items()
                 axis_list = config.AXIS.items()
 
-                for resolution in resolutions:
-                    print '     -Rescalando matriz con resolucion ' + str(resolution[1])
-                    muestra = series_model.add_sample(resolution[0], resolution[1])
+                for axis in axis_list:
+                    axis_model = atlas_model.add_axis(name=axis[0])
+                    for pos in range(0, shape[axis[1]]):
+                        if axis[0] == experiment.top_axis:
+                            image = PILImage.fromarray(atlas[:, pos, :].astype('uint8'))
+                        elif axis[0] == experiment.side_axis:
+                            image = PILImage.fromarray(atlas[pos, :, :].astype('uint8'))
+                        elif axis[0] == experiment.front_axis:
+                            image = PILImage.fromarray(atlas[:, :, pos].astype('uint8'))
 
-                    if (resolution[1] == 1):
-                        rescaled_shape = shape
-                    else:
-                        rescaled_shape = (int(shape[0] / resolution[1]), int(shape[1] / resolution[1]),
-                                          int(shape[2] / resolution[1]))
-                        atlas.resize(rescaled_shape)
+                        if axis[0]==experiment.top_axis:
+                            image = image.rotate(180)
+                        if is_atlas:
+                            path = config.ATLAS_PATH + dataset_key + '/' + axis[0] + '/'
+                        else:
+                            path = config.IMAGES_PATH + '/' + str(user.id) +'/'+str(experiment.id)+'/' + dataset_key + '/' + axis[0] + '/'
 
-                    for axis in axis_list:
-                        axis_model = muestra.add_axis(name=axis[0])
-
-                        for pos in range(0, rescaled_shape[axis[1]]):
-                            if axis[0] == experiment.top_axis:
-                                image = PILImage.fromarray(atlas[:, pos, :].astype('uint8'))
-                            elif axis[0] == experiment.side_axis:
-                                image = PILImage.fromarray(atlas[pos, :, :].astype('uint8'))
-                            elif axis[0] == experiment.front_axis:
-                                image = PILImage.fromarray(atlas[:, :, pos].astype('uint8'))
-
-                            if axis[0] == experiment.top_axis:
-                                image = image.rotate(180)
-
-                            path = config.IMAGES_PATH + '/' + str(user.id) + '/' + experiment.name + '/' + dataset_key + '/' + muestra.name + '/'  + axis[0] + '/'
-                            if not os.path.exists(path):
-                                os.makedirs(path)
-                            image_path = path + str(pos) + config.TYPE
-                            image.save(image_path)
-                            print '         -' + image_path
-                            axis_model.add_image(image_path, pos, 0)
-                            image.close()
+                        if not os.path.exists(path):
+                            os.makedirs(path)
+                        image_path = path + str(pos) + config.TYPE
+                        image.save(image_path)
+                        axis_model.add_image(image_path,pos,0)
+                        image.close()
     gc.collect()
+
+def get_h5_metadata(filename):
+
+    data_list = []
+    with h5py.File(filename, 'r') as hf:
+        groups_list = hf.keys()
+        for group_key in groups_list:
+            group = hf[group_key]
+            metadata = group.items()
+            for data in metadata:
+                aux_dict ={}
+                aux_dict['Name'] = data[0]
+                aux_dict['SizeX'] = data[1].shape[0]
+                aux_dict['SizeY'] = data[1].shape[1]
+                aux_dict['SizeZ'] = data[1].shape[2]
+                aux_dict['Description'] = str(data[1])
+                data_list.append(aux_dict)
+
+    return json.dumps(data_list)
 
 #Adding to BD
 

@@ -20,6 +20,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'tfgWeb',
     'django.contrib.staticfiles',
+    'django_extensions',
 ]
 
 MIDDLEWARE_CLASSES = [
@@ -108,6 +109,7 @@ CACHES = {
 
 SESSION_ENGINE = "django.contrib.sessions.backends.cache"
 
+STATIC_ROOT = '/static/'
 STATIC_URL = '/static/'
 STATIC_DIR = os.path.join(BASE_DIR, 'static')
 STATICFILES_DIRS = [STATIC_DIR, ]

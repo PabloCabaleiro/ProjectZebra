@@ -2,6 +2,89 @@
         background-color: #8EC0D1;
         margin-top: 0;
         padding: 20px 20px 20px 40px;
-        text-color: #8EC0D1;
-        border
+        color: #000000;
+        position:relative;
     }
+
+.login-forms {
+    margin-left: 20px;
+    padding: 20px 20px 20px 40px;
+    text-color: green;
+    }
+
+.h1-view {
+    margin-left: 15px;
+    padding-left:15px;
+}
+
+.experiment-list {
+    color:auto;
+    margin-left: 20px;
+    padding-left:20px;
+}
+
+.atlas-list {
+    color:auto;
+    margin-left: 20px;
+    padding-left:20px;
+}
+
+.user-info {
+    right: 0;
+    top: 0;
+    padding: 35px 40px 30px 40px;
+    position: absolute;
+}
+
+#header-title {
+    color: #0d0d0d;
+    text-decoration: None;
+}
+
+.header-link {
+    text-decoration: None;
+    color: #0d0d0d;
+    padding-left: 20px;
+}
+
+.canvas {
+    padding-left: 17px;
+}
+
+.info-forms {
+    margin-left: 30px;
+}
+
+table, th, td {
+    border: 1px solid black;
+
+}
+
+th, td {
+    padding: 15px;
+    text-align: left;
+}
+
+.expecial_row {
+    background-color:#8EC0D1;
+}
+
+.head_row {
+    background-color:#8FFFFF;
+}
+
+table {
+    margin-left:auto;
+    margin-right:auto;
+    margin-top:30px;
+    padding: 10px;
+}
+
+.table-title {
+    font-size: 20px;
+    font-weight: bold;
+}
+
+input {
+    text-padding-left: 5px;
+}

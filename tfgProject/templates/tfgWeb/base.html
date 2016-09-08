@@ -8,13 +8,25 @@
         <link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/bootstrap/3.2.0/css/bootstrap.min.css">
         <link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/bootstrap/3.2.0/css/bootstrap-theme.min.css">
         <link rel="stylesheet" type=""text/css" href="/static/css/stylesheet.css">
-        <title>ZebraViewer</title>
-        {% block title_block %}
-        {% endblock %}
+        <div>
+            <title>ZebraViewer</title>
+            {% block title_block %}
+            {% endblock %}
+        </div>
     </head>
     <body>
         <div class="page-header">
-             <h1><a href="/">ZebraViewer</a></h1>
+            <h1><a id="header-title" href="/tfgWeb/">ZebraViewer</a></h1>
+            <div class="user-info">
+                {% if request.user.is_authenticated %}
+                    Welcome, '{{ request.user.username }}'
+                <a class="header-link" href="/logout/">Log out</a>
+                {% else %}
+                    <a class="header-link" href="/register/">Register</a>
+                <br/>
+                    <a class="header-link"s href="/login/">Login</a>
+                {% endif %}
+            </div>
         </div>
 
         <div class="page-body">

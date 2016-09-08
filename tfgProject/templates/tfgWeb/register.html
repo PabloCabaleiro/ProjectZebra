@@ -3,26 +3,26 @@
 {% load staticfiles %}
 
 {% block title_block %}
-    Register
 {% endblock %}
 
 {% block body_block %}
-    <h1>About Page</h1>
-    {% if registered %}
-        tfgWeb says: <strong>thank you for registering!</strong>
-        <a href="/tfgWeb/">Return to the homepage.</a><br />
-    {% else %}
-        tfgWeb says: <strong>register here!</strong><br />
-        <form id="user_form" method="post" action="" enctype="multipart/form-data">
-        {% csrf_token %}
+    <h1 class="h1-view">Register</h1>
+    <div class="login-forms">
+        {% if registered %}
+            <strong>thank you for registering!</strong>
+            <a href="/tfgWeb/">Return to the homepage.</a><br />
+        {% else %}
+            <form id="user_form" method="post" action="" enctype="multipart/form-data">
+            {% csrf_token %}
 
-        <!-- Display each form -->
-        {{ user_form.as_p }}
-        {{ profile_form.as_p }}
+            <!-- Display each form -->
+            {{ user_form.as_p }}
+            {{ profile_form.as_p }}
 
-        <!-- Provide a button to click to submit the form. -->
-        <input type="submit" name="submit" value="Register" />
-        </form>
-    {% endif %}
+            <!-- Provide a button to click to submit the form. -->
+            <input type="submit" name="submit" value="Register" />
+            </form>
+        {% endif %}
+    </div>
 
-{% endblock %}ml>
+{% endblock %}

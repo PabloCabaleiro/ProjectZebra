@@ -2,14 +2,10 @@
 {% load staticfiles %}
 
 {% block title_block %}
-    <div>
-        <h1>tfgProject!</h1>
-        <br/>
-    </div>
 {% endblock %}
 
 {% block body_block %}
-        <div>
+        <div class="info-forms">
             <form id="atlas_form" method="post" enctype= multipart/form-dat>
                 {% csrf_token %}
                 Vista:
@@ -37,10 +33,12 @@
                 <input id = "pos_y" hidden type="text" name="pos_y" value= {{ pos_y }} />
                 <input id = "pos_z" hidden type="text" name="pos_z" value= {{ pos_z }} />
             </form>
+            {% if user.is_authenticated %}
             <a href="/zone?atlas={{ selected_atlas.id }}" class="btn btn-info" role="button">Add zone</a>
+            {% endif %}
         </div>
         <br>
-        <div>
+        <div class="canvas">
             {% if top_atlas %}
                 <canvas title="Top image" id="canvas_top" width= {{ size_z }} height= {{ size_x }} ></canvas>
             {% endif %}

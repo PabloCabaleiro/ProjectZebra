@@ -5,18 +5,20 @@
 {% endblock %}
 
 {% block body_block %}
-        <div>
+        <div class="info-forms" >
             {% if series %}
                 <form id="info_form" method="post" action="/experiment/" enctype= multipart/form-dat>
                     {% csrf_token %}
                     Vista:
-                    <select id="vistas" onchange="handleInfoSubmit()" name="vista" >
+                    <select id="vistas" onchange="handleInfoSubmit()" name="view" >
                         {% for view in views_list %}
                             <option  value={{ view }} {% if view == selected_view %}selected{% endif %}> {{ view }} </option>
                         {% endfor %}
                     </select>
-                    Series:
-                    <select id="series" onchange="handleInfoSubmit()" name="serie" >
+                    {% if selected_view != 'ATLAS' %}
+                        Series:
+                    {% endif %}
+                    <select id="series" {% if   selected_view == 'ATLAS' %} hidden {% endif %} onchange="handleInfoSubmit()" name="serie" >
                         {% for serie in series %}
                             <option  value={{ serie.id }} {% if serie.id == selected_serie.id %}selected{% endif %}> {{ serie.name }} </option>
                         {% endfor %}
@@ -29,42 +31,38 @@
                             <option value={{ atlas.id }} {% if atlas.id == selected_atlas.id %}selected{% endif %}> {{ atlas.name }} </option>
                         {% endfor %}
                     </select>
-                    {% if selected_view != 'BRAIN' and user.is_authenticated %}
-                    Zones:
-                    {% endif %}
-                    <select id="zones" onchange="handleInfoSubmit()" {% if selected_view == 'BRAIN' or not user.is_authenticated %} hidden {% endif %} name="zone" >
-                        <option value="-1"> Ninguno </option>
-                        {% for zone in zones_list %}
-                            <option value={{ zone.id }} {% if zone.id == selected_zone.id %}selected{% endif %}> {{ zone.name }} </option>
-                        {% endfor %}
-                    </select>
                     {% if total_times > 0 %}
-                        Time: <input name="time" type="number" value= {{ time }} max= {{ total_times }} min="0" onchange="this.form.submit()" />
+                        Time: <input name="time" type="number" value= {{ time }}  min="0" onchange="this.form.submit()" />
                     {% else %}
                          <input name="time" hidden type="number" value= {{ time }} max= {{ total_times }} min="0" onchange="this.form.submit()" />
                     {% endif %}
                     <input id = "pos_x" hidden type="text" name="pos_x" value= {{ pos_x }} size="5" />
                     <input id = "pos_y" hidden type="text" name="pos_y" value= {{ pos_y }} size="5" />
                     <input id = "pos_z" hidden type="text" name="pos_z" value= {{ pos_z }} size="5" />
+                    <input id = "pos_x_atlas" hidden type="text" name="pos_x_atlas" value= {{ pos_x_atlas }} size="5" />
+                    <input id = "pos_y_atlas" hidden type="text" name="pos_y_atlas" value= {{ pos_y_atlas }} size="5" />
+                    <input id = "pos_z_atlas" hidden type="text" name="pos_z_atlas" value= {{ pos_z_atlas }} size="5" />
                     <input id = "pos_x_start" hidden type="text" name="pos_x_start" value= {{ pos_x_start }} />
                     <input id = "pos_y_start" hidden type="text" name="pos_y_start" value= {{ pos_y_start }} />
                     <input id = "pos_z_start" hidden type="text" name="pos_z_start" value= {{ pos_z_start }} />
                     <input id = "width" hidden type="text" name="width" value= {{ width }} />
                     <input id = "height" hidden type="text" name="height" value= {{ height }} />
                     <input id = "depth" hidden type="text" name="depth" value= {{ depth }} />
-               </form>
+                    <input name = "save" hidden value = 0 id="save">
+                    <input id="navigate" name = "navigate" {% if selected_view != 'SYNC' %}hidden {% endif %}  {% if navigate == 1 %} value= 1 {% else %} value = 0 {% endif %}/>
+                </form>
             {% endif %}
         </div>
         <br>
-        <div>
-            {% if top_image %}
-                <canvas title="Top image" id="canvas_top" width= {{ atlas_size_z }} height= {{ atlas_size_x }} ></canvas>
+        <div class="canvas">
+            {% if top_image or top_atlas %}
+                <canvas title="Top image" id="canvas_top" width= {{ canvas_size_z }} height= {{ canvas_size_x }} ></canvas>
             {% endif %}
-            {% if front_image %}
-                <canvas title= "Front image" id="canvas_front" width= {{ atlas_size_x }} height= {{ atlas_size_y }} ></canvas>
+            {% if front_image or front_atlas %}
+                <canvas title= "Front image" id="canvas_front" width= {{ canvas_size_x }} height= {{ canvas_size_y }} ></canvas>
             {% endif %}
-            {% if side_image %}
-                <canvas title="Side image" id="canvas_side" width= {{ atlas_size_z }} height= {{ atlas_size_y }} ></canvas>
+            {% if side_image or side_atlas %}
+                <canvas title="Side image" id="canvas_side" width= {{ canvas_size_z }} height= {{ canvas_size_y }} ></canvas>
             {% endif %}
             <script>
 
@@ -88,6 +86,10 @@
                 var pos_y = {{ pos_y }};
                 var pos_z = {{ pos_z }};
 
+                var pos_x_atlas = {{ pos_x_atlas }};
+                var pos_y_atlas = {{ pos_y_atlas }};
+                var pos_z_atlas = {{ pos_z_atlas }};
+
                 var prop_x = pos_x;
                 var prop_y = pos_y;
                 var prop_z = pos_z;
@@ -108,6 +110,9 @@
                 var pos_x_form = document.getElementById('pos_x');
                 var pos_y_form = document.getElementById('pos_y');
                 var pos_z_form = document.getElementById('pos_z');
+                var pos_x_atlas_form = document.getElementById('pos_x_atlas');
+                var pos_y_atlas_form = document.getElementById('pos_y_atlas');
+                var pos_z_atlas_form = document.getElementById('pos_z_atlas');
                 var pos_x_start = document.getElementById('pos_x_start');
                 var pos_y_start = document.getElementById('pos_y_start');
                 var pos_z_start = document.getElementById('pos_z_start');
@@ -149,57 +154,76 @@
                     offsetXSide=canvas_side.offsetLeft;
                     offsetYSide=canvas_side.offsetTop;
 
-                    canvas_front.addEventListener('mousedown',handleMouseDownFront);
-                    canvas_front.addEventListener('mousemove',handleMouseMoveFront);
-                    canvas_front.addEventListener('mouseup',handleMouseUpFront);
-                    canvas_front.addEventListener('mouseout',handleMouseOutFront);
+                    {% if selected_view == 'SYNC' and navigate < 1 %}
+                        canvas_front.addEventListener('mousedown',handleMouseDownFront);
+                        canvas_front.addEventListener('mousemove',handleMouseMoveFront);
+                        canvas_front.addEventListener('mouseup',handleMouseUpFront);
+                        canvas_front.addEventListener('mouseout',handleMouseOutFront);
 
-                    canvas_side.addEventListener('mousedown',handleMouseDownSide);
-                    canvas_side.addEventListener('mousemove',handleMouseMoveSide);
-                    canvas_side.addEventListener('mouseup',handleMouseUpSide);
-                    canvas_side.addEventListener('mouseout',handleMouseOutSide);
+                        canvas_side.addEventListener('mousedown',handleMouseDownSide);
+                        canvas_side.addEventListener('mousemove',handleMouseMoveSide);
+                        canvas_side.addEventListener('mouseup',handleMouseUpSide);
+                        canvas_side.addEventListener('mouseout',handleMouseOutSide);
 
-                    canvas_top.addEventListener('mousedown',handleMouseDownTop);
-                    canvas_top.addEventListener('mousemove',handleMouseMoveTop);
-                    canvas_top.addEventListener('mouseup',handleMouseUpTop);
-                    canvas_top.addEventListener('mouseout',handleMouseOutTop);
+                        canvas_top.addEventListener('mousedown',handleMouseDownTop);
+                        canvas_top.addEventListener('mousemove',handleMouseMoveTop);
+                        canvas_top.addEventListener('mouseup',handleMouseUpTop);
+                        canvas_top.addEventListener('mouseout',handleMouseOutTop);
+                    {% else %}
+                        canvas_front.addEventListener('click',handleClickFront);
+                        canvas_side.addEventListener('click',handleClickSide);
+                        canvas_top.addEventListener('click',handleClickTop);
+                    {% endif %}
 
+                    {% if selected_view == 'BRAIN' or selected_view == 'SYNC' and front_image %}
+                        img_top = new Image();
+                        img_top.onload=function(){
+                            imageBack=imageZ+imageDepth;
+                            imageRight=imageX+imageWidth;
+                            draw();
+                        };
 
-                    img_top = new Image();
-                    atlas_top = new Image();
-                    img_top.onload=function(){
-                        imageBack=imageZ+imageDepth;
-                        imageRight=imageX+imageWidth;
-                        draw();
-                    };
+                        img_side=new Image();
+                        img_side.onload=function(){
+                            imageBack=imageZ+imageDepth;
+                            imageBottom=imageY+imageHeight
+                            draw();
+                        };
 
+                        img_front=new Image();
+                        img_front.onload=function(){
+                            imageRight=imageX+imageWidth;
+                            imageBottom=imageY+imageHeight
+                            draw();
+                        };
 
-                    img_side=new Image();
-                    atlas_side=new Image();
-                    img_side.onload=function(){
-                        imageBack=imageZ+imageDepth;
-                        imageBottom=imageY+imageHeight
-                        draw();
-                    };
+                        img_front.src= "{{ front_image }}";
+                        img_side.src= "{{ side_image }}";
+                        img_top.src= "{{ top_image }}";
+                    {% endif %}
 
-                    img_front=new Image();
-                    atlas_front=new Image();
-                    img_front.onload=function(){
-                        imageRight=imageX+imageWidth;
-                        imageBottom=imageY+imageHeight
-                        draw();
-                    };
-
-                    img_front.src= "{{ front_image }}";
-                    img_side.src= "{{ side_image }}";
-                    img_top.src= "{{ top_image }}";
-                    atlas_front.src= "{{front_atlas }}";
-                    atlas_side.src= "{{side_atlas }}";
-                    atlas_top.src= "{{top_atlas }}";
+                    {% if selected_view == 'ATLAS' or selected_view == 'SYNC' %}
+                        atlas_top = new Image();
+                        atlas_side=new Image();
+                        atlas_front=new Image();
+                        atlas_top.onload=function(){
+                            draw();
+                        };
+                        atlas_side.onload=function(){
+                            draw();
+                        };
+                        atlas_front.onload=function(){
+                            draw();
+                        };
+                        atlas_front.src= "{{front_atlas }}";
+                        atlas_side.src= "{{side_atlas }}";
+                        atlas_top.src= "{{top_atlas }}";
+                    {% endif %}
                 }
 
 
                 function writeMessage(context, canvas, message) {
+                    context.globalCompositeOperation = 'source-over';
                     context.font = '14pt Calibri';
                     context.fillStyle = 'red';
                     context.fillText(message, 10, 25);
@@ -227,107 +251,158 @@
                 function draw(){
 
                     //clean the canvas
-                    ctx_front.clearRect(0,0,{{ atlas_size_x }},{{ atlas_size_y }});
-                    ctx_top.clearRect(0,0,{{ atlas_size_z }},{{ atlas_size_x }});
-                    ctx_side.clearRect(0,0,{{ atlas_size_z }},{{ atlas_size_y }});
+                    ctx_front.clearRect(0,0,{{ canvas_size_x }},{{ canvas_size_y }});
+                    ctx_top.clearRect(0,0,{{ canvas_size_z }},{{ canvas_size_x }});
+                    ctx_side.clearRect(0,0,{{ canvas_size_z }},{{ canvas_size_y }});
 
                     // draw the images
                     //FRONT
-                    ctx_front.globalCompositeOperation = 'destination-over';
-                    ctx_front.drawImage(atlas_front, 0, 0,atlas_front.width,atlas_front.height,0,0,{{ atlas_size_x }},{{ atlas_size_y }});
-                    ctx_front.globalCompositeOperation = 'source-over';
-                    ctx_front.drawImage(img_front,0,0,img_front.width,img_front.height,imageX,imageY,imageWidth,imageHeight);
-                    // draw the connecting anchor lines
-                    ctx_front.strokeStyle = "#0f0";
-                    ctx_front.beginPath();
-                    ctx_front.moveTo(imageX,imageY);
-                    ctx_front.lineTo(imageRight,imageY);
-                    ctx_front.lineTo(imageRight,imageBottom);
-                    ctx_front.lineTo(imageX,imageBottom);
-                    ctx_front.lineTo(imageX,imageY);
-                    ctx_front.stroke();
-                    ctx_front.closePath();
-                    // draw the draggable anchors
-                    drawDragAnchor('FRONT',imageX,imageY);
-                    drawDragAnchor('FRONT',imageRight,imageY);
-                    drawDragAnchor('FRONT',imageRight,imageBottom);
-                    drawDragAnchor('FRONT',imageX,imageBottom);
-                    var message = 'Front image: ' +{{pos_x}} + 'x, ' + {{pos_y}} +'y Atlas image: ' + {{pos_x_atlas}} + 'x, ' + {{pos_y_atlas}} + 'y'
+                    {% if selected_view != 'BRAIN' %}
+                        ctx_front.globalCompositeOperation = 'destination-over';
+                        ctx_front.drawImage(atlas_front, 0, 0,atlas_front.width,atlas_front.height,0,0,{{ canvas_size_x }},{{ canvas_size_y }});
+                    {% endif %}
+                    {% if selected_view != 'ATLAS' %}
+                        ctx_front.globalCompositeOperation = 'source-over';
+                        {% if selected_view == 'SYNC' and image_front %}
+                            ctx_front.drawImage(img_front,0,0,img_front.width,img_front.height,imageX,imageY,imageWidth,imageHeight);
+                        {% else %}
+                            ctx_front.drawImage(img_front,0,0,img_front.width,img_front.height,imageX,imageY,{{canvas_size_x}},{{ canvas_size_y }});
+                        {% endif %}
+                    {% endif %}
+                    {% if selected_view == 'SYNC' and navigate == -1 %}
+                        // draw the connecting anchor lines
+                        ctx_front.strokeStyle = "#0f0";
+                        ctx_front.beginPath();
+                        ctx_front.moveTo(imageX,imageY);
+                        ctx_front.lineTo(imageRight,imageY);
+                        ctx_front.lineTo(imageRight,imageBottom);
+                        ctx_front.lineTo(imageX,imageBottom);
+                        ctx_front.lineTo(imageX,imageY);
+                        ctx_front.stroke();
+                        ctx_front.closePath();
+                        // draw the draggable anchors
+                        drawDragAnchor('FRONT',imageX,imageY);
+                        drawDragAnchor('FRONT',imageRight,imageY);
+                        drawDragAnchor('FRONT',imageRight,imageBottom);
+                        drawDragAnchor('FRONT',imageX,imageBottom);
+                        var message = 'Front image: ' +{{pos_x}} + 'x, ' + {{pos_y}} +'y Atlas image: ' + {{pos_x_atlas}} + 'x, ' + {{pos_y_atlas}} + 'y'
+                    {% endif %}
+
+                    {% if selected_view == 'ATLAS' %}
+                        var message = 'Atlas front: ' + {{pos_x_atlas}} + 'x, ' + {{pos_y_atlas}} + 'y'
+                    {% elif selected_view == 'ATLAS' %}
+                        var message = 'Front image: ' +{{pos_x}} + 'x, ' + {{pos_y}} +'y'
+                    {% endif %}
+
                     ctx_front.font = '10pt Calibri';
                     ctx_front.fillStyle = 'red';
                     ctx_front.fillText(message, 5, 15);
 
 
                     //TOP
-                    ctx_top.globalCompositeOperation = 'destination-over';
-                    ctx_top.drawImage(atlas_top, 0, 0,atlas_top.width,atlas_top.height,0,0,{{ atlas_size_z }},{{ atlas_size_x }});
-                    ctx_top.globalCompositeOperation = 'source-over';
-                    ctx_top.drawImage(img_top,0,0,img_top.width,img_top.height,imageZ,imageX,imageDepth,imageWidth);
-                    // draw the connecting anchor lines
-                    ctx_top.strokeStyle = "#0f0";
-                    ctx_top.beginPath();
-                    ctx_top.moveTo(imageZ,imageX);
-                    ctx_top.lineTo(imageBack,imageX);
-                    ctx_top.lineTo(imageBack,imageRight);
-                    ctx_top.lineTo(imageZ,imageRight);
-                    ctx_top.lineTo(imageZ,imageX);
-                    ctx_top.stroke();
-                    ctx_top.closePath();
-                    // draw the draggable anchors
-                    drawDragAnchor('TOP',imageZ,imageX);
-                    drawDragAnchor('TOP',imageBack,imageX);
-                    drawDragAnchor('TOP',imageBack,imageRight);
-                    drawDragAnchor('TOP',imageZ,imageRight);
-                    var message = 'Top image: ' + {{pos_z}} + 'z, ' + {{pos_x}} +'x Atlas image: ' + {{pos_z_atlas}} + 'z, ' + {{pos_x_atlas}} + 'x'
+                    {% if selected_view != 'BRAIN' %}
+                        ctx_top.globalCompositeOperation = 'destination-over';
+                        ctx_top.drawImage(atlas_top, 0, 0,atlas_top.width,atlas_top.height,0,0,{{ canvas_size_z }},{{ canvas_size_x }});
+                    {% endif %}
+                    {% if selected_view != 'ATLAS' %}
+                        ctx_top.globalCompositeOperation = 'source-over';
+                        {% if selected_view == 'SYNC' and image_top %}
+                            ctx_top.drawImage(img_top,0,0,img_top.width,img_top.height,imageZ,imageX,imageDepth,imageWidth);
+                        {%else%}
+                            ctx_top.drawImage(img_top,0,0,img_top.width,img_top.height,imageZ,imageX,{{ canvas_size_z }},{{ canvas_size_x }});
+                        {% endif %}
+                    {% endif %}
+                    {% if selected_view == 'SYNC' and navigate == -1 %}
+                        // draw the connecting anchor lines
+                        ctx_top.strokeStyle = "#0f0";
+                        ctx_top.beginPath();
+                        ctx_top.moveTo(imageZ,imageX);
+                        ctx_top.lineTo(imageBack,imageX);
+                        ctx_top.lineTo(imageBack,imageRight);
+                        ctx_top.lineTo(imageZ,imageRight);
+                        ctx_top.lineTo(imageZ,imageX);
+                        ctx_top.stroke();
+                        ctx_top.closePath();
+                        // draw the draggable anchors
+                        drawDragAnchor('TOP',imageZ,imageX);
+                        drawDragAnchor('TOP',imageBack,imageX);
+                        drawDragAnchor('TOP',imageBack,imageRight);
+                        drawDragAnchor('TOP',imageZ,imageRight);
+                    {% endif %}
+                    {% if selected_view == 'SYNC' %}
+                        var message = 'Top image: ' + {{pos_z}} + 'z, ' + {{pos_x}} +'x Atlas image: ' + {{pos_z_atlas}} + 'z, ' + {{pos_x_atlas}} + 'x'
+                    {% elif selected_view == 'ATLAS' %}
+                        var message = 'Atlas top: ' + {{pos_z_atlas}} + 'z, ' + {{pos_x_atlas}} + 'x'
+                    {% elif selected_view == 'BRAIN' %}
+                        var message = 'Top image: ' + {{pos_z}} + 'z, ' + {{pos_x}} +'x'
+                    {% endif %}
                     ctx_top.font = '10pt Calibri';
                     ctx_top.fillStyle = 'red';
                     ctx_top.fillText(message, 5, 15);
 
                     //SIDE
-                    ctx_side.globalCompositeOperation = 'destination-over';
-                    ctx_side.drawImage(atlas_side, 0, 0,atlas_side.width,atlas_side.height,0,0,{{ atlas_size_z }},{{ atlas_size_y }});
-                    ctx_side.globalCompositeOperation = 'source-over';
-                    ctx_side.drawImage(img_side,0,0,img_side.width,img_side.height,imageZ,imageY,imageDepth,imageHeight);
-                    // draw the connecting anchor lines
-                    ctx_side.beginPath();
-                    ctx_side.strokeStyle = "#0f0";
-                    ctx_side.moveTo(imageZ,imageY);
-                    ctx_side.lineTo(imageBack,imageY);
-                    ctx_side.lineTo(imageBack,imageBottom);
-                    ctx_side.lineTo(imageZ,imageBottom);
-                    ctx_side.lineTo(imageZ,imageY);
-                    ctx_side.stroke();
-                    ctx_side.closePath();
-                    // draw the draggable anchors
-                    drawDragAnchor('SIDE',imageZ,imageY);
-                    drawDragAnchor('SIDE',imageBack,imageY);
-                    drawDragAnchor('SIDE',imageBack,imageBottom);
-                    drawDragAnchor('SIDE',imageZ,imageBottom);
-                    var message = 'Side image: ' + {{pos_z}} + 'z, ' + {{pos_y}} +'y Atlas image: ' + {{pos_z_atlas}} + 'z, ' + {{pos_y_atlas}} + 'y'
+                    {% if selected_view != 'BRAIN' %}
+                        ctx_side.globalCompositeOperation = 'destination-over';
+                        ctx_side.drawImage(atlas_side, 0, 0,atlas_side.width,atlas_side.height,0,0,{{ canvas_size_z }},{{ canvas_size_y }});
+                    {% endif %}
+                    {% if selected_view != 'ATLAS' %}
+                        ctx_side.globalCompositeOperation = 'source-over';
+                        {% if selected_view == 'SYNC' and image_side %}
+                            ctx_side.drawImage(img_side,0,0,img_side.width,img_side.height,imageZ,imageY,imageDepth,imageHeight);
+                        {% else %}
+                            ctx_side.drawImage(img_side,0,0,img_side.width,img_side.height,imageZ,imageY,{{ canvas_size_z }},{{ canvas_size_y }});
+                        {% endif %}
+                    {% endif %}
+                    {% if selected_view == 'SYNC' and navigate == -1 %}
+                        // draw the connecting anchor lines
+                        ctx_side.beginPath();
+                        ctx_side.strokeStyle = "#0f0";
+                        ctx_side.moveTo(imageZ,imageY);
+                        ctx_side.lineTo(imageBack,imageY);
+                        ctx_side.lineTo(imageBack,imageBottom);
+                        ctx_side.lineTo(imageZ,imageBottom);
+                        ctx_side.lineTo(imageZ,imageY);
+                        ctx_side.stroke();
+                        ctx_side.closePath();
+                        // draw the draggable anchors
+                        drawDragAnchor('SIDE',imageZ,imageY);
+                        drawDragAnchor('SIDE',imageBack,imageY);
+                        drawDragAnchor('SIDE',imageBack,imageBottom);
+                        drawDragAnchor('SIDE',imageZ,imageBottom);
+                    {% endif %}
+                    {% if selected_view == 'SYNC' %}
+                        var message = 'Side image: ' + {{pos_z}} + 'z, ' + {{pos_y}} +'y Atlas image: ' + {{pos_z_atlas}} + 'z, ' + {{pos_y_atlas}} + 'y';
+                    {% elif selected_view == 'ATLAS' %}
+                        var message = 'Atlas side: ' + {{pos_z_atlas}} + 'z, ' + {{pos_y_atlas}} + 'y';
+                    {% elif selected_view == 'BRAIN' %}
+                        var message = 'Side image: ' + {{pos_z}} + 'z, ' + {{pos_y}} +'y';
+                    {% endif %}
                     ctx_side.font = '10pt Calibri';
                     ctx_side.fillStyle = 'red';
                     ctx_side.fillText(message, 5, 15);
 
                     // draw position lines
-                    drawLines();
+                    {% if selected_view != 'SYNC' or navigate == 1 %}
+                        drawLines();
+                    {% endif %}
                 }
 
                 function drawDragAnchor(img,x,y){
-                    if (img=='FRONT') {
+                    if (img == 'FRONT') {
                         ctx_front.globalCompositeOperation = 'source-over';
                         ctx_front.beginPath();
                         ctx_front.fillStyle = "#f00";
                         ctx_front.arc(x,y,resizerRadius,0,pi2,false);
                         ctx_front.fill();
                         ctx_front.closePath();
-                    } else if (img=='TOP') {
+                    } else if (img == 'TOP') {
                         ctx_top.globalCompositeOperation = 'source-over';
                         ctx_top.beginPath();
                         ctx_top.fillStyle = "#f00";
                         ctx_top.arc(x,y,resizerRadius,0,pi2,false);
                         ctx_top.fill();
                         ctx_top.closePath();
-                    } else if (img=='SIDE') {
+                    } else if (img == 'SIDE') {
                         ctx_side.globalCompositeOperation = 'source-over';
                         ctx_side.beginPath();
                         ctx_side.fillStyle = "#f00";
@@ -338,39 +413,50 @@
                 }
 
                 function drawLines() {
+                    {% if selected_view == 'BRAIN' %}
+                        var aux_x = pos_x;
+                        var aux_y = pos_y;
+                        var aux_z = pos_z;
+                    {% else %}
+                        var aux_x = pos_x_atlas;
+                        var aux_y = pos_y_atlas;
+                        var aux_z =pos_z_atlas;
+                    {% endif %}
                     //FRONT LINES
+                    ctx_front.globalCompositeOperation = 'source-over';
                     ctx_front.beginPath();
                     ctx_front.strokeStyle = "#f00";
-                    ctx_front.moveTo(imageX,imageY+pos_y);
-                    ctx_front.lineTo(imageRight,imageY+pos_y);
-                    ctx_front.moveTo(imageX+pos_x,imageY);
-                    ctx_front.lineTo(imageX+pos_x,imageBottom);
+                    ctx_front.moveTo(0,aux_y);
+                    ctx_front.lineTo({{canvas_size_x}},aux_y);
+                    ctx_front.moveTo(aux_x,0);
+                    ctx_front.lineTo(aux_x,{{canvas_size_y}});
                     ctx_front.stroke();
                     ctx_front.closePath();
                     //SIDE LINES
+                    ctx_side.globalCompositeOperation = 'source-over';
                     ctx_side.beginPath();
                     ctx_side.strokeStyle = "#f00";
-                    ctx_side.moveTo(imageZ,imageY+pos_y);
-                    ctx_side.lineTo(imageBack,imageY+pos_y);
-                    ctx_side.moveTo(imageZ+pos_z,imageY);
-                    ctx_side.lineTo(imageZ+pos_z,imageBottom);
+                    ctx_side.moveTo(0,aux_y);
+                    ctx_side.lineTo({{canvas_size_z}},aux_y);
+                    ctx_side.moveTo(aux_z,0);
+                    ctx_side.lineTo(aux_z,{{canvas_size_y}});
                     ctx_side.stroke();
                     ctx_side.closePath();
                     //TOP LINES
+                    ctx_top.globalCompositeOperation = 'source-over';
                     ctx_top.beginPath();
                     ctx_top.strokeStyle = "#f00";
-                    ctx_top.moveTo(imageZ+pos_z,imageX);
-                    ctx_top.lineTo(imageZ+pos_z,imageRight);
-                    ctx_top.moveTo(imageZ,imageX+pos_x);
-                    ctx_top.lineTo(imageBack,imageX+pos_x);
+                    ctx_top.moveTo(aux_z,0);
+                    ctx_top.lineTo(aux_z,{{canvas_size_x}});
+                    ctx_top.moveTo(0,aux_x);
+                    ctx_top.lineTo({{canvas_size_z}},aux_x);
                     ctx_top.stroke();
                     ctx_top.closePath();
-
                 }
 
                 function anchorHitTest(img,x,y){
 
-                    if (img=='FRONT') {
+                    if (img == 'FRONT') {
                         var dx,dy;
                         // top-left
                         dx=x-imageX;
@@ -389,7 +475,7 @@
                         dy=y-imageBottom;
                         if(dx*dx+dy*dy<=rr){ return(3); }
                         return(-1);
-                    } else if (img=='SIDE') {
+                    } else if (img == 'SIDE') {
                         var dz,dy;
                         // top-left
                         dz=x-imageZ;
@@ -408,7 +494,7 @@
                         dy=y-imageBottom;
                         if(dz*dz+dy*dy<=rr){ return(3); }
                         return(-1);
-                    } else if (img=='TOP') {
+                    } else if (img == 'TOP') {
                         var dx,dz;
                         // top-left
                         dx=x-imageZ;
@@ -433,7 +519,7 @@
 
 
                 function hitImage(img,x,y){
-                    if (img=='FRONT') {
+                    if (img == 'FRONT') {
                         return(x>imageX && x<imageX+imageWidth && y>imageY && y<imageY+imageHeight);
                     } else if (img == 'SIDE') {
                         return(x>imageZ && x<imageZ+imageDepth && y>imageY && y<imageY+imageHeight);
@@ -454,8 +540,8 @@
 
                 function handleMouseDownSide(e){
                   var rect = canvas_side.getBoundingClientRect();
-                  startZ=Math.round((e.clientX-rect.left)/(rect.right-rect.left)*{{atlas_size_z}});
-                  startY=Math.round((e.clientY-rect.top)/(rect.bottom-rect.top)*{{atlas_size_y}});
+                  startZ=Math.round((e.clientX-rect.left)/(rect.right-rect.left)*{{canvas_size_z}});
+                  startY=Math.round((e.clientY-rect.top)/(rect.bottom-rect.top)*{{canvas_size_y}});
                   draggingResizer=anchorHitTest('SIDE',startZ,startY);
                   hit = hitImage('SIDE',startZ,startY);
                   down = draggingResizer<0 && hit;
@@ -463,8 +549,8 @@
 
                 function handleMouseDownTop(e){
                   var rect = canvas_top.getBoundingClientRect();
-                  startZ=Math.round((e.clientX-rect.left)/(rect.right-rect.left)*{{atlas_size_z}});
-                  startX=Math.round((e.clientY-rect.top)/(rect.bottom-rect.top)*{{atlas_size_x}});
+                  startZ=Math.round((e.clientX-rect.left)/(rect.right-rect.left)*{{canvas_size_z}});
+                  startX=Math.round((e.clientY-rect.top)/(rect.bottom-rect.top)*{{canvas_size_x}});
                   draggingResizer=anchorHitTest('TOP',startZ,startX);
                   hit = hitImage('TOP',startZ,startX);
                   down = draggingResizer<0 && hit;
@@ -774,7 +860,70 @@
                       draw();
                   }
                 }
+                 function handleClickFront(e){
 
+                    var rect = canvas_front.getBoundingClientRect();
+                    mouseX=Math.round((e.clientX-rect.left)/(rect.right-rect.left)*{{canvas_size_x}});
+                    mouseY=Math.round((e.clientY-rect.top)/(rect.bottom-rect.top)*{{canvas_size_y}});
+                    {% if max_x %}
+                        if (mouseX>{{min_x}} && mouseX<{{max_x}} && mouseY>{{min_y}} && mouseY<{{max_y}}) {
+                            pos_x_atlas_form.value = mouseX;
+                            pos_y_atlas_form.value = mouseY;
+                            info_form.submit();
+                        }
+                    {% else %}
+                        {% if selected_view == 'ATLAS' %}
+                            pos_x_atlas_form.value = mouseX;
+                            pos_y_atlas_form.value = mouseY;
+                        {% elif selected_view == 'BRAIN' %}
+                            pos_x_form.value = mouseX;
+                            pos_y_form.value = mouseY;
+                        {% endif %}
+                        info_form.submit();
+                    {% endif %}
+                }
+
+                function handleClickSide(e){
+                    mouseX=parseInt(e.clientX-offsetXSide);
+                    mouseY=parseInt(e.clientY-offsetYSide);
+                    {% if max_x %}
+                        if (mouseX>{{min_z}} && mouseX<{{max_z}} && mouseY>{{min_y}} && mouseY<{{max_y}}) {
+                            pos_z_atlas_form.value = mouseX;
+                            pos_y_atlas_form.value = mouseY;
+                            info_form.submit();
+                        }
+                    {% else %}
+                        {% if selected_view == 'ATLAS' %}
+                            pos_z_atlas_form.value = mouseX;
+                            pos_y_atlas_form.value = mouseY;
+                        {% elif selected_view == 'BRAIN' %}
+                            pos_z_form.value = mouseX;
+                            pos_y_form.value = mouseY;
+                        {% endif %}
+                        info_form.submit();
+                    {% endif %}
+                }
+
+                function handleClickTop(e){
+                    mouseX=parseInt(e.clientX-offsetXTop);
+                    mouseY=parseInt(e.clientY-offsetYTop);
+                    {% if max_x %}
+                        if (mouseX>{{min_z}} && mouseX<{{max_z}} && mouseY>{{min_x}} && mouseY<{{max_x}}) {
+                            pos_z_atlas_form.value = mouseX;
+                            pos_x_atlas_form.value = mouseY;
+                            info_form.submit();
+                        }
+                    {% else %}
+                        {% if selected_view == 'ATLAS' %}
+                            pos_z_atlas_form.value = mouseX;
+                            pos_x_atlas_form.value = mouseY;
+                        {% elif selected_view == 'BRAIN' %}
+                            pos_z_form.value = mouseX;
+                            pos_x_form.value = mouseY;
+                        {% endif %}
+                        info_form.submit();
+                    {% endif %}
+                }
                 </script>
 
         </div>

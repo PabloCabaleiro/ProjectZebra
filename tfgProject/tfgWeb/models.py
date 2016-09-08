@@ -9,16 +9,6 @@ from django.db.models import Q
 
 AUTH_USER_MODEL = getattr(settings, 'AUTH_USER_MODEL', 'auth.User')
 
-class Zone(models.Model):
-    name = models.CharField(max_length=128)
-    owner = models.ForeignKey(AUTH_USER_MODEL)
-    max_x = models.IntegerField(default=0)
-    min_x = models.IntegerField(default=0)
-    max_y = models.IntegerField(default=0)
-    min_y = models.IntegerField(default=0)
-    max_z = models.IntegerField(default=0)
-    min_z = models.IntegerField(default=0)
-
 class Experiment(models.Model):
     name = models.CharField(max_length=128)
     owner = models.ForeignKey(AUTH_USER_MODEL, null=True)
@@ -31,6 +21,13 @@ class Experiment(models.Model):
     def __str__(self):
         return self.name
 
+    def delete_experiment(self):
+        self.delete()
+
+    def change_name(self, name):
+        self.name=name
+        self.save()
+
     def get_galery(self, name):
         return Galery.objects.get(Q(experiment=self) & Q(name=name))
 
@@ -41,7 +38,7 @@ class Experiment(models.Model):
         return Galery.objects.get_or_create(experiment=self, name= name, total_times=1, x_size=size_x, y_size= size_y, z_size=size_z)[0]
 
     def add_series(self, name, times, size_x, size_y, size_z):
-        return Galery.objects.get_or_create(experiment=self, name=name, total_times=times, x_size=size_x, y_size= size_y, z_size=size_z)[0]
+        return Galery.objects.get_or_create(experiment=self, name=name, total_times=times, x_size=size_x, y_size= size_y, z_size=size_z, width=-1, height=-1, depth=-1, start_x=0, start_y=0, start_z=0)[0]
 
 class Galery(models.Model):
 
@@ -51,6 +48,24 @@ class Galery(models.Model):
     x_size = models.IntegerField(default=0)
     y_size = models.IntegerField(default=0)
     z_size = models.IntegerField(default=0)
+    width = models.IntegerField(default=-1)
+    height = models.IntegerField(default=-1)
+    depth = models.IntegerField(default=-1)
+    start_x = models.IntegerField(default=0)
+    start_y = models.IntegerField(default=0)
+    start_z = models.IntegerField(default=0)
+
+    def set_size(self, width, height, depth):
+        self.width = width
+        self.height = height
+        self.depth = depth
+        self.save()
+
+    def set_position(self, start_x, start_y, start_z):
+        self.start_x = start_x
+        self.start_y = start_y
+        self.start_z = start_z
+        self.save()
 
     def add_axis(self, name):
         return Axis.objects.get_or_create(galery=self, name=name)[0]
@@ -82,7 +97,7 @@ class Axis(models.Model):
         return image
 
     def __str__(self):
-        return self.sample.__str__() + " axis " + self.name
+        return self.galery.__str__() + " axis " + self.name
 
 class Image(models.Model):
 
@@ -97,19 +112,18 @@ class Image(models.Model):
 class UserProfile(models.Model):
 
     username = models.OneToOneField(User, default=None)
-    organization = models.CharField(blank=True, max_length=20, default='none')
+    organization = models.CharField(blank=True, max_length=20)
 
     def __str__(self):
         return self.user.username
 
 def get_experiments(user):
     if user.is_anonymous():
-        series_list = Experiment.objects.filter(Q(owner=User.objects.get_by_natural_key(config.ADMIN_NAME))).exclude(
-            is_atlas=True)
+        return None
     else:
-        series_list = Experiment.objects.filter(
+        return Experiment.objects.filter(
             Q(owner=user) | Q(owner=User.objects.get_by_natural_key(config.ADMIN_NAME))).exclude(is_atlas=True)
-    return series_list
+
 
 def get_experiment(experiment_id):
     experiment =  Experiment.objects.get(Q(id=experiment_id))
@@ -121,10 +135,3 @@ def get_atlas():
 def add_experiment(name, info, user, is_atlas, front_axis, top_axis, side_axis):
     experiment = Experiment.objects.get_or_create(owner=user, name=name, info= info, is_atlas=is_atlas, front_axis=front_axis, side_axis=side_axis, top_axis=top_axis)[0]
     return experiment
-
-def add_zone(name, owner, x_max, x_min, y_max, y_min, z_max, z_min):
-    zone = Zone.objects.get_or_create(name=name, owner=owner, max_x=x_max, min_x=x_min, max_y=y_max, min_y=y_min, max_z=z_max, min_z=z_min)[0]
-    return zone
-
-def get_zones():
-    return Zone.objects.all()
