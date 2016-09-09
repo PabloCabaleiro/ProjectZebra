@@ -80,12 +80,12 @@ def experiment(request):
                 context_dict['canvas_size_x'] = sizes['X']
                 context_dict['canvas_size_y'] = sizes['Y']
                 context_dict['canvas_size_z'] = sizes['Z']
-                pos_x_atlas = info_form.cleaned_data['pos_x_atlas']
-                pos_y_atlas = info_form.cleaned_data['pos_y_atlas']
-                pos_z_atlas = info_form.cleaned_data['pos_z_atlas']
-                context_dict['pos_x_atlas'] = pos_x_atlas
-                context_dict['pos_y_atlas'] = pos_y_atlas
-                context_dict['pos_z_atlas'] = pos_z_atlas
+                pos_x_atlas = int(info_form.cleaned_data['pos_x_atlas'] * selected_atlas.x_size / float(sizes['X']))
+                pos_y_atlas = int(info_form.cleaned_data['pos_y_atlas'] * selected_atlas.y_size / float(sizes['Y']))
+                pos_z_atlas = int(info_form.cleaned_data['pos_z_atlas'] * selected_atlas.z_size / float(sizes['Z']))
+                context_dict['pos_x_atlas'] = info_form.cleaned_data['pos_x_atlas']
+                context_dict['pos_y_atlas'] = info_form.cleaned_data['pos_y_atlas']
+                context_dict['pos_z_atlas'] = info_form.cleaned_data['pos_z_atlas']
 
                 front_atlas = selected_atlas.get_image(selected_atlas.experiment.front_axis, pos_z_atlas, 0)
                 side_atlas = selected_atlas.get_image(selected_atlas.experiment.side_axis, pos_x_atlas, 0)
@@ -119,9 +119,20 @@ def experiment(request):
                 pos_y = info_form.cleaned_data['pos_y']
                 pos_z = info_form.cleaned_data['pos_z']
                 if pos_x == -1 and pos_y== -1 and pos_z== -1:
-                    pos_x = int(selected_serie.x_size / 4)
-                    pos_y = int(selected_serie.y_size / 4)
-                    pos_z = int(selected_serie.z_size / 4)
+                    pos_x = int(selected_serie.x_size / 2)
+                    pos_y = int(selected_serie.y_size / 2)
+                    pos_z = int(selected_serie.z_size / 2)
+                    context_dict['pos_x'] = int(selected_serie.x_size / 4)
+                    context_dict['pos_y'] = int(selected_serie.y_size / 4)
+                    context_dict['pos_z'] = int(selected_serie.z_size / 4)
+                else:
+                    pos_x = pos_x * 2
+                    pos_y = pos_y * 2
+                    pos_z = pos_z * 2
+                    context_dict['pos_x'] = info_form.cleaned_data['pos_x']
+                    context_dict['pos_y'] = info_form.cleaned_data['pos_y']
+                    context_dict['pos_z'] = info_form.cleaned_data['pos_z']
+
 
                 var_time = info_form.cleaned_data['time']
                 context_dict['time'] = var_time
@@ -136,10 +147,6 @@ def experiment(request):
                 context_dict['pos_x_start'] = 0
                 context_dict['pos_y_start'] = 0
                 context_dict['pos_z_start'] = 0
-
-                context_dict['pos_x'] = pos_x
-                context_dict['pos_y'] = pos_y
-                context_dict['pos_z'] = pos_z
 
             elif selected_view == 'SYNC':
                 if info_form.cleaned_data['navigate']==0:
@@ -166,7 +173,7 @@ def experiment(request):
                     image_sizes = utils.get_image_sizes(sizes['X'], sizes['Y'], sizes['Z'], selected_serie)
                     if width == -1:
                         if selected_serie.width > -1:
-                            context_dict['width'] = selected_serie.width
+                            context_dict['width'] = int(selected_serie.width * sizes['X'] / float(selected_serie.x_size))
                         else:
                             context_dict['width'] = image_sizes['X']
                         if pos_x == -1:
@@ -181,7 +188,7 @@ def experiment(request):
                         pos_x = int(pos_x * selected_serie.x_size / width)
                     if height == -1:
                         if selected_serie.height>-1:
-                            context_dict['height'] = selected_serie.height
+                            context_dict['height'] = int(selected_serie.height* sizes['Y'] / float(selected_serie.y_size))
                         else:
                             context_dict['height'] = image_sizes['Y']
                         if pos_y == -1:
@@ -196,7 +203,7 @@ def experiment(request):
                         pos_y = int(pos_y * selected_serie.y_size / height)
                     if depth == -1:
                         if selected_serie.depth > -1:
-                            context_dict['depth'] = selected_serie.depth
+                            context_dict['depth'] = int(selected_serie.depth* sizes['Z'] / float(selected_serie.z_size))
                         else:
                             context_dict['depth'] = image_sizes['Z']
                         if pos_z == -1:
@@ -237,6 +244,7 @@ def experiment(request):
                     context_dict['canvas_size_x'] = sizes['X']
                     context_dict['canvas_size_y'] = sizes['Y']
                     context_dict['canvas_size_z'] = sizes['Z']
+                    context_dict['navigate'] = -1
                 else: ###NAVEGAR###
                     if (info_form.cleaned_data['pos_x_start'] == -1 and info_form.cleaned_data['pos_y_start'] == -1 and info_form.cleaned_data['pos_z_atlas'] == -1):
                         if (selected_serie.start_x > 0 or selected_serie.start_y>0 or selected_serie.start_z > 0):
@@ -274,15 +282,12 @@ def experiment(request):
                         selected_serie.set_position(pos_x_start,pos_y_start,pos_z_start)
 
                     # Atlas
-                    pos_x_original = info_form.cleaned_data['pos_x_atlas']
-                    pos_y_original = info_form.cleaned_data['pos_y_atlas']
-                    pos_z_original = info_form.cleaned_data['pos_z_atlas']
-                    context_dict['pos_x_atlas'] = pos_x_original
-                    context_dict['pos_y_atlas'] = pos_y_original
-                    context_dict['pos_z_atlas'] = pos_z_original
-                    pos_x_atlas = int(info_form.cleaned_data['pos_x'] * selected_atlas.x_size / float(sizes['X']))
-                    pos_y_atlas = int(info_form.cleaned_data['pos_y'] * selected_atlas.y_size / float(sizes['Y']))
-                    pos_z_atlas = int(info_form.cleaned_data['pos_z'] * selected_atlas.z_size / float(sizes['Z']))
+                    context_dict['pos_x_atlas'] = info_form.cleaned_data['pos_x_atlas']
+                    context_dict['pos_y_atlas'] = info_form.cleaned_data['pos_y_atlas']
+                    context_dict['pos_z_atlas'] = info_form.cleaned_data['pos_z_atlas']
+                    pos_x_atlas = int(info_form.cleaned_data['pos_x_atlas'] * selected_atlas.x_size / float(sizes['X']))
+                    pos_y_atlas = int(info_form.cleaned_data['pos_y_atlas'] * selected_atlas.y_size / float(sizes['Y']))
+                    pos_z_atlas = int(info_form.cleaned_data['pos_z_atlas'] * selected_atlas.z_size / float(sizes['Z']))
                     front_atlas = selected_atlas.get_image(selected_atlas.experiment.front_axis, pos_z_atlas, 0)
                     side_atlas = selected_atlas.get_image(selected_atlas.experiment.side_axis, pos_x_atlas, 0)
                     top_atlas = selected_atlas.get_image(selected_atlas.experiment.top_axis, pos_y_atlas, 0)
@@ -294,10 +299,10 @@ def experiment(request):
                     context_dict['canvas_size_z'] = sizes['Z']
 
                     #Experimento -> si imagen dentro de zona calibrada
-                    if utils.hit_experiment(pos_x_original,pos_y_original,pos_z_original, selected_serie):
-                        pos_x_img = int((pos_x_original - pos_x_start) * width / float(selected_serie.x_size))
-                        pos_y_img = int((pos_y_original - pos_y_start) * height / float(selected_serie.y_size))
-                        pos_z_img = int((pos_z_original - pos_z_start) * depth / float(selected_serie.z_size))
+                    if utils.hit_experiment(pos_x_atlas,pos_y_atlas,pos_z_atlas, selected_serie):
+                        pos_x_img = int((pos_x_atlas - pos_x_start) * width / float(selected_serie.x_size))
+                        pos_y_img = int((pos_y_atlas - pos_y_start) * height / float(selected_serie.y_size))
+                        pos_z_img = int((pos_z_atlas - pos_z_start) * depth / float(selected_serie.z_size))
                         time = info_form.cleaned_data['time']
                         front_image = selected_serie.get_image(selected_experiment.front_axis, pos_z_img, time)
                         side_image = selected_serie.get_image(selected_experiment.side_axis, pos_x_img, time)
@@ -308,8 +313,23 @@ def experiment(request):
                         context_dict['time'] = time
                     else:
                         context_dict['time'] = info_form.cleaned_data['time']
-
-                    context_dict['selected_view']
+                    pos_x = info_form.cleaned_data['pos_x']
+                    pos_y = info_form.cleaned_data['pos_y']
+                    pos_z = info_form.cleaned_data['pos_z']
+                    if pos_x == -1:
+                        context_dict['pos_x'] = int(selected_serie.x_size/4.)
+                    else:
+                        context_dict['pos_x'] = pos_x
+                    if pos_y == -1:
+                        context_dict['pos_y'] = int(selected_serie.y_size/4.)
+                    else:
+                        context_dict['pos_y'] = pos_y
+                    if pos_z == -1:
+                        context_dict['pos_z'] = int(selected_serie.z_size/4.)
+                    else:
+                        context_dict['pos_z'] = pos_z
+                    context_dict['selected_view'] = 'SYNC'
+                    context_dict['navigate'] = 1
 
 
             context_dict['selected_view'] = selected_view
@@ -373,11 +393,6 @@ def experiment(request):
         context_dict['selected_view'] = 'ATLAS'
         request.session['experiment'] = selected_experiment.id
 
-    #tiempo_inicial= time()
-    #tiempo_final = time()
-    #tiempo_ejecucion = tiempo_final - tiempo_inicial
-    #print 'Time used (seconds): ', tiempo_ejecucion
-
     return render(request, 'tfgWeb/experiment.html', context=context_dict)
 
 def info(request):
@@ -440,6 +455,7 @@ def upload_experiment(request):
             top_axis = upload_form.cleaned_data['top_axis']
             front_axis = upload_form.cleaned_data['front_axis']
             side_axis = upload_form.cleaned_data['side_axis']
+            name = upload_form.cleaned_data['name']
 
             context_dict['upload_form'] = upload_form
 
@@ -450,9 +466,9 @@ def upload_experiment(request):
                 context_dict['message'] = 'File type not allowed'
                 return render(request, 'tfgWeb/upload_experiment.html', context=context_dict)
             elif (parts[len(parts) - 1] == 'lif'):
-                utils.save_lif(path, request.user, top_axis, side_axis, front_axis)
+                utils.save_lif(path, request.user, top_axis, side_axis, front_axis,name=name)
             elif (parts[len(parts) - 1] == 'h5'):
-                utils.save_h5(path, request.user, top_axis, side_axis, front_axis)
+                utils.save_h5(path, request.user, top_axis, side_axis, front_axis,name=name)
             else:
                 context_dict['message'] = 'File type not allowed'
                 return render(request, 'tfgWeb/upload_experiment.html', context=context_dict)

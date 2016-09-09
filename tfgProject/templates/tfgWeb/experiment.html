@@ -15,7 +15,7 @@
                             <option  value={{ view }} {% if view == selected_view %}selected{% endif %}> {{ view }} </option>
                         {% endfor %}
                     </select>
-                    {% if selected_view != 'ATLAS' %}
+                    {% if selected_view == 'BRAIN' or selected_view == 'SYNC' and navigate < 1  %}
                         Series:
                     {% endif %}
                     <select id="series" {% if   selected_view == 'ATLAS' %} hidden {% endif %} onchange="handleInfoSubmit()" name="serie" >
@@ -48,8 +48,9 @@
                     <input id = "width" hidden type="text" name="width" value= {{ width }} />
                     <input id = "height" hidden type="text" name="height" value= {{ height }} />
                     <input id = "depth" hidden type="text" name="depth" value= {{ depth }} />
-                    <input name = "save" hidden value = 0 id="save">
-                    <input id="navigate" name = "navigate" {% if selected_view != 'SYNC' %}hidden {% endif %}  {% if navigate == 1 %} value= 1 {% else %} value = 0 {% endif %}/>
+                    <input name = "save" hidden value = "0" id="save">
+                    <input name = "navigate" id="navigate" value = {{navigate}} hidden />
+                    <button onclick="changeMode()" id="change_mode" {% if selected_view != 'SYNC' %}hidden {% endif %}>{% if navigate == 1 %} Modify synchronization {% else %} Save and Explore {% endif %}</button>
                 </form>
             {% endif %}
         </div>
@@ -120,6 +121,8 @@
                 var height_form = document.getElementById('height');
                 var depth_form = document.getElementById('depth');
                 var info_form = document.getElementById('info_form');
+                var save = document.getElementById('save');
+                var navigate = document.getElementById('navigate');
 
 
                 var lastImageWidth = imageWidth;
@@ -175,7 +178,7 @@
                         canvas_top.addEventListener('click',handleClickTop);
                     {% endif %}
 
-                    {% if selected_view == 'BRAIN' or selected_view == 'SYNC' and front_image %}
+                    {% if selected_view == 'BRAIN' or front_image %}
                         img_top = new Image();
                         img_top.onload=function(){
                             imageBack=imageZ+imageDepth;
@@ -221,6 +224,16 @@
                     {% endif %}
                 }
 
+                function changeMode() {
+                    if ({{navigate}} == -1 && selected_view=='SYNC') {
+                        save.value=1;
+                        navigate.value=1;
+                    } else {
+                        save.value=0;
+                        navigate.value=-1;
+                    }
+                    info_form.submit();
+                }
 
                 function writeMessage(context, canvas, message) {
                     context.globalCompositeOperation = 'source-over';
@@ -263,11 +276,11 @@
                     {% endif %}
                     {% if selected_view != 'ATLAS' %}
                         ctx_front.globalCompositeOperation = 'source-over';
-                        {% if selected_view == 'SYNC' and image_front %}
+                        {% if selected_view == 'SYNC' and front_image %}
                             ctx_front.drawImage(img_front,0,0,img_front.width,img_front.height,imageX,imageY,imageWidth,imageHeight);
-                        {% else %}
+                        {% elif selected_view == 'BRAIN' %}
                             ctx_front.drawImage(img_front,0,0,img_front.width,img_front.height,imageX,imageY,{{canvas_size_x}},{{ canvas_size_y }});
-                        {% endif %}
+                        s{% endif %}
                     {% endif %}
                     {% if selected_view == 'SYNC' and navigate == -1 %}
                         // draw the connecting anchor lines
@@ -306,9 +319,9 @@
                     {% endif %}
                     {% if selected_view != 'ATLAS' %}
                         ctx_top.globalCompositeOperation = 'source-over';
-                        {% if selected_view == 'SYNC' and image_top %}
+                        {% if selected_view == 'SYNC' and top_image %}
                             ctx_top.drawImage(img_top,0,0,img_top.width,img_top.height,imageZ,imageX,imageDepth,imageWidth);
-                        {%else%}
+                        {% elif selected_view == 'BRAIN' %}
                             ctx_top.drawImage(img_top,0,0,img_top.width,img_top.height,imageZ,imageX,{{ canvas_size_z }},{{ canvas_size_x }});
                         {% endif %}
                     {% endif %}
@@ -347,9 +360,9 @@
                     {% endif %}
                     {% if selected_view != 'ATLAS' %}
                         ctx_side.globalCompositeOperation = 'source-over';
-                        {% if selected_view == 'SYNC' and image_side %}
+                        {% if selected_view == 'SYNC' and side_image %}
                             ctx_side.drawImage(img_side,0,0,img_side.width,img_side.height,imageZ,imageY,imageDepth,imageHeight);
-                        {% else %}
+                        {% elif selected_view == 'BRAIN' %}
                             ctx_side.drawImage(img_side,0,0,img_side.width,img_side.height,imageZ,imageY,{{ canvas_size_z }},{{ canvas_size_y }});
                         {% endif %}
                     {% endif %}

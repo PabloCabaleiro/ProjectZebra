@@ -37,9 +37,10 @@ class InfoForm(forms.Form):
 #Index view
 class UploadForm(forms.Form):
     file = forms.FileField(label='Select a .lif file')
+    name = forms.CharField()
     top_axis = forms.CharField(max_length=1)
     front_axis = forms.CharField(max_length=1)
-    size_axis = forms.CharField(max_length=1)
+    side_axis = forms.CharField(max_length=1)
     class Meta:
         fields = ('file',)
 

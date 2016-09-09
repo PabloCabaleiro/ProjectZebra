@@ -331,7 +331,7 @@ def read_series(experiment, user, bf_reader, serieID=0, name=""):  # Reads a ser
 
     gc.collect()
 
-def save_lif(filename, user, top_axis, side_axis, front_axis, is_atlas=False):
+def save_lif(filename, user, top_axis, side_axis, front_axis, is_atlas=False, name = None):
 
     # Checking VM
     check_VM()
@@ -339,7 +339,8 @@ def save_lif(filename, user, top_axis, side_axis, front_axis, is_atlas=False):
     bf_reader = get_reader_lif(filename)
     total_series = get_total_series_lif(bf_reader.rdr)
     names = get_name_lif(filename)
-    name = get_name_experiment(filename)
+    if name is None:
+        name = get_name_experiment(filename)
     metadata = get_metadata_lif(filename)
     experiment = models.add_experiment(name=name, info=metadata, user=user, is_atlas=is_atlas, top_axis=top_axis, side_axis=side_axis,
                                 front_axis=front_axis)
@@ -387,9 +388,10 @@ def get_metadata_lif(filename):
 
 #Reading Series h5
 
-def save_h5(filename, user, top_axis, side_axis, front_axis, is_atlas=False):
+def save_h5(filename, user, top_axis, side_axis, front_axis, is_atlas=False, name=None):
 
-    name = get_name_experiment(filename)
+    if name is None:
+        name = get_name_experiment(filename)
     metadata = str(get_h5_metadata(filename))
     experiment = models.add_experiment(user=user, info=metadata, name=name, is_atlas=is_atlas, top_axis=top_axis, side_axis=side_axis,
                                 front_axis=front_axis)
