@@ -34,6 +34,12 @@ class InfoForm(forms.Form):
     save = forms.BooleanField()
     view = forms.CharField()
 
+class AtlasForm(forms.Form):
+    pos_x = forms.IntegerField(max_value=1024)
+    pos_y = forms.IntegerField(max_value=1024)
+    pos_z = forms.IntegerField(max_value=1024)
+    atlas = forms.CharField(widget=forms.Select)
+
 #Index view
 class UploadForm(forms.Form):
     file = forms.FileField(label='Select a .lif file')

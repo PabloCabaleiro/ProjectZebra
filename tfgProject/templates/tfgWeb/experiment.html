@@ -15,10 +15,10 @@
                             <option  value={{ view }} {% if view == selected_view %}selected{% endif %}> {{ view }} </option>
                         {% endfor %}
                     </select>
-                    {% if selected_view == 'BRAIN' or selected_view == 'SYNC' and navigate < 1  %}
+                    {% if selected_view == 'BRAIN'  %}
                         Series:
                     {% endif %}
-                    <select id="series" {% if   selected_view == 'ATLAS' %} hidden {% endif %} onchange="handleInfoSubmit()" name="serie" >
+                    <select id="series" {% if   selected_view != 'BRAIN' %} hidden {% endif %} onchange="handleInfoSubmit()" name="serie" >
                         {% for serie in series %}
                             <option  value={{ serie.id }} {% if serie.id == selected_serie.id %}selected{% endif %}> {{ serie.name }} </option>
                         {% endfor %}
@@ -225,12 +225,24 @@
                 }
 
                 function changeMode() {
-                    if ({{navigate}} == -1 && selected_view=='SYNC') {
+                    if ({{navigate}} == -1) {
+                        width_form.value = imageWidth;
+                        height_form.value = imageHeight;
+                        depth_form.value = imageDepth;
+                        pos_x_start.value = imageX;
+                        pos_y_start.value = imageY;
+                        pos_z_start.value = imageZ;
                         save.value=1;
                         navigate.value=1;
                     } else {
                         save.value=0;
                         navigate.value=-1;
+                        pos_x_atlas_form.value = pos_x_atlas;
+                        pos_y_atlas_form.value = pos_y_atlas;
+                        pos_z_atlas_form.value = pos_z_atlas;
+                        pos_x_form.value = pos_x;
+                        pos_y_form.value = pos_y;
+                        pos_z_form.value = pos_z;
                     }
                     info_form.submit();
                 }
@@ -280,7 +292,7 @@
                             ctx_front.drawImage(img_front,0,0,img_front.width,img_front.height,imageX,imageY,imageWidth,imageHeight);
                         {% elif selected_view == 'BRAIN' %}
                             ctx_front.drawImage(img_front,0,0,img_front.width,img_front.height,imageX,imageY,{{canvas_size_x}},{{ canvas_size_y }});
-                        s{% endif %}
+                        {% endif %}
                     {% endif %}
                     {% if selected_view == 'SYNC' and navigate == -1 %}
                         // draw the connecting anchor lines
@@ -299,11 +311,13 @@
                         drawDragAnchor('FRONT',imageRight,imageBottom);
                         drawDragAnchor('FRONT',imageX,imageBottom);
                         var message = 'Front image: ' +{{pos_x}} + 'x, ' + {{pos_y}} +'y Atlas image: ' + {{pos_x_atlas}} + 'x, ' + {{pos_y_atlas}} + 'y'
+                    {% elif selected_view == 'SYNC' and navigate == 1 %}
+                        var message = 'Front image: ' +{{pos_x}} + 'x, ' + {{pos_y}} +'y Atlas image: ' + {{pos_x_atlas}} + 'x, ' + {{pos_y_atlas}} + 'y'
                     {% endif %}
 
                     {% if selected_view == 'ATLAS' %}
                         var message = 'Atlas front: ' + {{pos_x_atlas}} + 'x, ' + {{pos_y_atlas}} + 'y'
-                    {% elif selected_view == 'ATLAS' %}
+                    {% elif selected_view == 'BRAIN' %}
                         var message = 'Front image: ' +{{pos_x}} + 'x, ' + {{pos_y}} +'y'
                     {% endif %}
 
@@ -320,7 +334,7 @@
                     {% if selected_view != 'ATLAS' %}
                         ctx_top.globalCompositeOperation = 'source-over';
                         {% if selected_view == 'SYNC' and top_image %}
-                            ctx_top.drawImage(img_top,0,0,img_top.width,img_top.height,imageZ,imageX,imageDepth,imageWidth);
+                            ctx_top.drawImage(img_top,0,0,img_top.width,img_top.height,{{canvas_size_z}} - (imageZ + imageDepth),imageX,imageDepth,imageWidth);
                         {% elif selected_view == 'BRAIN' %}
                             ctx_top.drawImage(img_top,0,0,img_top.width,img_top.height,imageZ,imageX,{{ canvas_size_z }},{{ canvas_size_x }});
                         {% endif %}
@@ -329,18 +343,18 @@
                         // draw the connecting anchor lines
                         ctx_top.strokeStyle = "#0f0";
                         ctx_top.beginPath();
-                        ctx_top.moveTo(imageZ,imageX);
-                        ctx_top.lineTo(imageBack,imageX);
-                        ctx_top.lineTo(imageBack,imageRight);
-                        ctx_top.lineTo(imageZ,imageRight);
-                        ctx_top.lineTo(imageZ,imageX);
+                        ctx_top.moveTo({{canvas_size_z}} - (imageZ + imageDepth),imageX);
+                        ctx_top.lineTo({{canvas_size_z}} - imageZ,imageX);
+                        ctx_top.lineTo({{canvas_size_z}} - imageZ,imageRight);
+                        ctx_top.lineTo({{canvas_size_z}} - (imageZ + imageDepth),imageRight);
+                        ctx_top.lineTo({{canvas_size_z}} - (imageZ + imageDepth),imageX);
                         ctx_top.stroke();
                         ctx_top.closePath();
                         // draw the draggable anchors
-                        drawDragAnchor('TOP',imageZ,imageX);
-                        drawDragAnchor('TOP',imageBack,imageX);
-                        drawDragAnchor('TOP',imageBack,imageRight);
-                        drawDragAnchor('TOP',imageZ,imageRight);
+                        drawDragAnchor('TOP',{{canvas_size_z}} - (imageZ + imageDepth),imageX);
+                        drawDragAnchor('TOP',{{canvas_size_z}} - imageZ,imageX);
+                        drawDragAnchor('TOP',{{canvas_size_z}} - imageZ,imageRight);
+                        drawDragAnchor('TOP',{{canvas_size_z}} - (imageZ + imageDepth),imageRight);
                     {% endif %}
                     {% if selected_view == 'SYNC' %}
                         var message = 'Top image: ' + {{pos_z}} + 'z, ' + {{pos_x}} +'x Atlas image: ' + {{pos_z_atlas}} + 'z, ' + {{pos_x_atlas}} + 'x'
@@ -459,8 +473,8 @@
                     ctx_top.globalCompositeOperation = 'source-over';
                     ctx_top.beginPath();
                     ctx_top.strokeStyle = "#f00";
-                    ctx_top.moveTo(aux_z,0);
-                    ctx_top.lineTo(aux_z,{{canvas_size_x}});
+                    ctx_top.moveTo({{canvas_size_z}}-aux_z,0);
+                    ctx_top.lineTo({{canvas_size_z}}-aux_z,{{canvas_size_x}});
                     ctx_top.moveTo(0,aux_x);
                     ctx_top.lineTo({{canvas_size_z}},aux_x);
                     ctx_top.stroke();
@@ -510,19 +524,19 @@
                     } else if (img == 'TOP') {
                         var dx,dz;
                         // top-left
-                        dx=x-imageZ;
+                        dx= x- ({{canvas_size_z}} - (imageZ+ imageDepth));
                         dz=y-imageX;
                         if(dx*dx+dz*dz<=rr){ return(0); }
                         // top-right
-                        dx=x-imageBack;
+                        dx=x-({{canvas_size_z}} - imageZ);
                         dz=y-imageX;
                         if(dx*dx+dz*dz<=rr){ return(1); }
                         // bottom-right
-                        dx=x-imageBack;
+                        dx=x- ({{canvas_size_z}}- imageZ);
                         dz=y-imageRight;
                         if(dx*dx+dz*dz<=rr){ return(2); }
                         // bottom-left
-                        dx=x-imageZ;
+                        dx=x- ({{canvas_size_z}} - (imageZ+ imageDepth));
                         dz=y-imageRight;
                         if(dx*dx+dz*dz<=rr){ return(3); }
                         return(-1);
@@ -537,7 +551,7 @@
                     } else if (img == 'SIDE') {
                         return(x>imageZ && x<imageZ+imageDepth && y>imageY && y<imageY+imageHeight);
                     } else if (img == 'TOP') {
-                        return(x>imageZ && x<imageZ+imageDepth && y>imageX && y<imageZ+imageWidth);
+                        return(x>({{canvas_size_z}} - (imageZ+ imageDepth)) && x<({{canvas_size_z}} - imageZ) && y>imageX && y<imageZ+imageWidth);
                     }
                 }
 
@@ -574,20 +588,7 @@
                       draggingResizer=-1;
                       draggingImage=false;
                       draw();
-                  } else if (hit) {
-                      mouseX=parseInt(e.clientX-offsetXFront);
-                      mouseY=parseInt(e.clientY-offsetYFront);
-                      pos_x_form.value = mouseX - imageX;
-                      pos_y_form.value = mouseY - imageY;
-                      pos_x_start.value = imageX;
-                      pos_z_start.value = imageZ;
-                      pos_y_start.value = imageY;
-                      width_form.value = imageWidth;
-                      height_form.value = imageHeight;
-                      depth_form.value = imageDepth;
-                      info_form.submit();
-                  }
-                  hit = false;
+                  } 
                   down = false;
                 }
 
@@ -596,20 +597,7 @@
                       draggingResizer=-1;
                       draggingImage=false;
                       draw();
-                  } else if (hit) {
-                      mouseX=parseInt(e.clientX-offsetXSide);
-                      mouseY=parseInt(e.clientY-offsetYSide);
-                      pos_z_form.value = mouseX - imageZ;
-                      pos_y_form.value = mouseY - imageY;
-                      pos_x_start.value = imageX;
-                      pos_z_start.value = imageZ;
-                      pos_y_start.value = imageY;
-                      width_form.value = imageWidth;
-                      height_form.value = imageHeight;
-                      depth_form.value = imageDepth;
-                      info_form.submit();
                   }
-                  hit = false;
                   down = false;
                 }
 
@@ -618,20 +606,7 @@
                       draggingResizer=-1;
                       draggingImage=false;
                       draw();
-                  } else if (hit) {
-                      mouseX=parseInt(e.clientX-offsetXTop);
-                      mouseY=parseInt(e.clientY-offsetYTop);
-                      pos_z_form.value = mouseX - imageZ;
-                      pos_x_form.value = mouseY - imageX;
-                      pos_x_start.value = imageX;
-                      pos_z_start.value = imageZ;
-                      pos_y_start.value = imageY;
-                      width_form.value = imageWidth;
-                      height_form.value = imageHeight;
-                      depth_form.value = imageDepth;
-                      info_form.submit();
                   }
-                  hit = false;
                   down = false;
                 }
 
@@ -810,24 +785,24 @@
                       // resize the image
                       switch(draggingResizer){
                           case 0: //top-left
-                              imageZ=mouseX;
-                              imageDepth=imageBack-mouseX;
                               imageX=mouseY;
+                              imageDepth=({{canvas_size_z}} - imageZ)-mouseX;
                               imageWidth=imageRight-mouseY;
                               break;
                           case 1: //top-right
+                              imageZ={{canvas_size_z}} - mouseX;
+                              imageDepth=imageBack-imageZ;
                               imageX=mouseY;
-                              imageDepth=mouseX-imageZ;
                               imageWidth=imageRight-mouseY;
                               break;
                           case 2: //bottom-right
+                              imageZ={{canvas_size_z}} - mouseX;
                               imageWidth=mouseY-imageX;
-                              imageDepth=mouseX-imageZ;
+                              imageDepth=imageBack-imageZ;
                               break;
                           case 3: //bottom-left
-                              imageZ=mouseX;
                               imageWidth=mouseY-imageX;
-                              imageDepth=imageBack-mouseX;
+                              imageDepth=({{canvas_size_z}} - imageZ)-mouseX;
                               break;
                       }
 
@@ -862,9 +837,9 @@
                       var dx=mouseX-startZ;
                       var dy=mouseY-startX;
                       imageX+=dy;
-                      imageZ+=dx;
+                      imageZ-=dx;
                       imageRight+=dy;
-                      imageBack+=dx;
+                      imageBack-=dx;
                       // reset the startXY for next time
                       startX=mouseY;
                       startZ=mouseX;
@@ -878,64 +853,61 @@
                     var rect = canvas_front.getBoundingClientRect();
                     mouseX=Math.round((e.clientX-rect.left)/(rect.right-rect.left)*{{canvas_size_x}});
                     mouseY=Math.round((e.clientY-rect.top)/(rect.bottom-rect.top)*{{canvas_size_y}});
-                    {% if max_x %}
-                        if (mouseX>{{min_x}} && mouseX<{{max_x}} && mouseY>{{min_y}} && mouseY<{{max_y}}) {
-                            pos_x_atlas_form.value = mouseX;
-                            pos_y_atlas_form.value = mouseY;
-                            info_form.submit();
-                        }
-                    {% else %}
+
+                    {% if selected_view != 'BRAIN' %}
+                        pos_x_atlas_form.value = mouseX;
+                        pos_y_atlas_form.value = mouseY;
                         {% if selected_view == 'ATLAS' %}
-                            pos_x_atlas_form.value = mouseX;
-                            pos_y_atlas_form.value = mouseY;
-                        {% elif selected_view == 'BRAIN' %}
-                            pos_x_form.value = mouseX;
-                            pos_y_form.value = mouseY;
+                            pos_x_atlas = mouseX;
+                            pos_y_atlas = mouseY;
                         {% endif %}
-                        info_form.submit();
+                    {% else %}
+                        pos_x_form.value = mouseX;
+                        pos_y_form.value = mouseY;
+                        pos_x = mouseX;
+                        pos_y = mouseY;
+                        pos_y = mouseY;
                     {% endif %}
+                    info_form.submit();
+
                 }
 
                 function handleClickSide(e){
                     mouseX=parseInt(e.clientX-offsetXSide);
                     mouseY=parseInt(e.clientY-offsetYSide);
-                    {% if max_x %}
-                        if (mouseX>{{min_z}} && mouseX<{{max_z}} && mouseY>{{min_y}} && mouseY<{{max_y}}) {
-                            pos_z_atlas_form.value = mouseX;
-                            pos_y_atlas_form.value = mouseY;
-                            info_form.submit();
-                        }
-                    {% else %}
+                    {% if selected_view != 'BRAIN' %}
+                        pos_z_atlas_form.value = mouseX;
+                        pos_y_atlas_form.value = mouseY;
                         {% if selected_view == 'ATLAS' %}
-                            pos_z_atlas_form.value = mouseX;
-                            pos_y_atlas_form.value = mouseY;
-                        {% elif selected_view == 'BRAIN' %}
-                            pos_z_form.value = mouseX;
-                            pos_y_form.value = mouseY;
+                            pos_z_atlas = mouseX;
+                            pos_y_atlas = mouseY;
                         {% endif %}
-                        info_form.submit();
+                    {% else %}
+                        pos_z_form.value = mouseX;
+                        pos_y_form.value = mouseY;
+                        pos_z = mouseX;
+                        pos_y = mouseY;
                     {% endif %}
+                    info_form.submit();
                 }
 
                 function handleClickTop(e){
                     mouseX=parseInt(e.clientX-offsetXTop);
                     mouseY=parseInt(e.clientY-offsetYTop);
-                    {% if max_x %}
-                        if (mouseX>{{min_z}} && mouseX<{{max_z}} && mouseY>{{min_x}} && mouseY<{{max_x}}) {
-                            pos_z_atlas_form.value = mouseX;
-                            pos_x_atlas_form.value = mouseY;
-                            info_form.submit();
-                        }
-                    {% else %}
+                    {% if selected_view != 'BRAIN' %}
+                        pos_z_atlas_form.value = {{canvas_size_z}} - mouseX;
+                        pos_x_atlas_form.value = mouseY;
                         {% if selected_view == 'ATLAS' %}
-                            pos_z_atlas_form.value = mouseX;
-                            pos_x_atlas_form.value = mouseY;
-                        {% elif selected_view == 'BRAIN' %}
-                            pos_z_form.value = mouseX;
-                            pos_x_form.value = mouseY;
+                            pos_z_atlas = {{canvas_size_z}} - mouseX;
+                            pos_x_atlas = mouseY;
                         {% endif %}
-                        info_form.submit();
+                    {% else %}
+                        pos_z_form.value = {{canvas_size_z}} - mouseX;
+                        pos_x_form.value = mouseY;
+                        pos_z = {{canvas_size_z}} - mouseX;
+                        pos_x = mouseY;
                     {% endif %}
+                    info_form.submit();
                 }
                 </script>
 

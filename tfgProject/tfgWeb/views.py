@@ -6,7 +6,7 @@ from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponseRedirect, HttpResponse
 from django.core.urlresolvers import reverse
-from tfgWeb.forms import UserForm, UserProfileForm, InfoForm, UploadForm, NameForm, DeleteForm
+from tfgWeb.forms import UserForm, UserProfileForm, InfoForm, UploadForm, NameForm, DeleteForm, AtlasForm
 import json
 
 def index(request):
@@ -173,7 +173,7 @@ def experiment(request):
                     image_sizes = utils.get_image_sizes(sizes['X'], sizes['Y'], sizes['Z'], selected_serie)
                     if width == -1:
                         if selected_serie.width > -1:
-                            context_dict['width'] = int(selected_serie.width * sizes['X'] / float(selected_serie.x_size))
+                            context_dict['width'] = int(selected_serie.width * image_sizes['X'] / float(selected_serie.x_size))
                         else:
                             context_dict['width'] = image_sizes['X']
                         if pos_x == -1:
@@ -188,7 +188,7 @@ def experiment(request):
                         pos_x = int(pos_x * selected_serie.x_size / width)
                     if height == -1:
                         if selected_serie.height>-1:
-                            context_dict['height'] = int(selected_serie.height* sizes['Y'] / float(selected_serie.y_size))
+                            context_dict['height'] = int(selected_serie.height* image_sizes['Y'] / float(selected_serie.y_size))
                         else:
                             context_dict['height'] = image_sizes['Y']
                         if pos_y == -1:
@@ -203,7 +203,7 @@ def experiment(request):
                         pos_y = int(pos_y * selected_serie.y_size / height)
                     if depth == -1:
                         if selected_serie.depth > -1:
-                            context_dict['depth'] = int(selected_serie.depth* sizes['Z'] / float(selected_serie.z_size))
+                            context_dict['depth'] = int(selected_serie.depth * image_sizes['Z'] / float(selected_serie.z_size))
                         else:
                             context_dict['depth'] = image_sizes['Z']
                         if pos_z == -1:
@@ -264,7 +264,7 @@ def experiment(request):
                     else:
                         pos_x_start = int(info_form.cleaned_data['pos_x_start'] * selected_atlas.x_size / float(sizes['X']))
                         pos_y_start = int(info_form.cleaned_data['pos_y_start'] * selected_atlas.y_size / float(sizes['Y']))
-                        pos_z_start = int(info_form.cleaned_data['pos_z_atlas'] * selected_atlas.z_size / float(sizes['Z']))
+                        pos_z_start = int(info_form.cleaned_data['pos_z_start'] * selected_atlas.z_size / float(sizes['Z']))
                         context_dict['pos_x_start'] = info_form.cleaned_data['pos_x_start']
                         context_dict['pos_y_start'] = info_form.cleaned_data['pos_y_start']
                         context_dict['pos_z_start'] = info_form.cleaned_data['pos_z_start']
@@ -300,9 +300,9 @@ def experiment(request):
 
                     #Experimento -> si imagen dentro de zona calibrada
                     if utils.hit_experiment(pos_x_atlas,pos_y_atlas,pos_z_atlas, selected_serie):
-                        pos_x_img = int((pos_x_atlas - pos_x_start) * width / float(selected_serie.x_size))
-                        pos_y_img = int((pos_y_atlas - pos_y_start) * height / float(selected_serie.y_size))
-                        pos_z_img = int((pos_z_atlas - pos_z_start) * depth / float(selected_serie.z_size))
+                        pos_x_img = int((pos_x_atlas - pos_x_start) * selected_serie.x_size / float(width))
+                        pos_y_img = int((pos_y_atlas - pos_y_start) * selected_serie.y_size / float(height))
+                        pos_z_img = int((pos_z_atlas - pos_z_start) * selected_serie.z_size / float(depth))
                         time = info_form.cleaned_data['time']
                         front_image = selected_serie.get_image(selected_experiment.front_axis, pos_z_img, time)
                         side_image = selected_serie.get_image(selected_experiment.side_axis, pos_x_img, time)
@@ -311,23 +311,15 @@ def experiment(request):
                         context_dict['top_image'] = '/' + top_image
                         context_dict['side_image'] = '/' + side_image
                         context_dict['time'] = time
+                        context_dict['pos_x'] = pos_x_img
+                        context_dict['pos_y'] = pos_y_img
+                        context_dict['pos_z'] = pos_z_img
                     else:
                         context_dict['time'] = info_form.cleaned_data['time']
-                    pos_x = info_form.cleaned_data['pos_x']
-                    pos_y = info_form.cleaned_data['pos_y']
-                    pos_z = info_form.cleaned_data['pos_z']
-                    if pos_x == -1:
-                        context_dict['pos_x'] = int(selected_serie.x_size/4.)
-                    else:
-                        context_dict['pos_x'] = pos_x
-                    if pos_y == -1:
-                        context_dict['pos_y'] = int(selected_serie.y_size/4.)
-                    else:
-                        context_dict['pos_y'] = pos_y
-                    if pos_z == -1:
-                        context_dict['pos_z'] = int(selected_serie.z_size/4.)
-                    else:
-                        context_dict['pos_z'] = pos_z
+                        context_dict['pos_x'] = 0
+                        context_dict['pos_y'] = 0
+                        context_dict['pos_z'] = 0
+
                     context_dict['selected_view'] = 'SYNC'
                     context_dict['navigate'] = 1
 
@@ -496,6 +488,78 @@ def user_login(request):
             return HttpResponse("Invalid login details supplied.")
     else:
         return render(request, 'tfgWeb/login.html', {})
+
+def atlas(request):
+    context_dict = {}
+
+    atlas_list = list(models.get_atlas())
+    context_dict["atlas_list"] = atlas_list
+    sizes = config.DEFAULT_SIZES
+
+
+    if request.method == 'POST':
+        atlas_form = AtlasForm(request.POST)
+
+        if (atlas_form.is_valid()):
+            # Get selected atlas
+            atlas_list = list(models.get_atlas())
+
+            atlasID = int(atlas_form.cleaned_data['atlas'])
+            for atlas in atlas_list:
+                if atlas.id == atlasID:
+                    selected_atlas = atlas
+                    context_dict['selected_atlas'] = selected_atlas
+                    break
+
+            pos_x = atlas_form.cleaned_data['pos_x']
+            pos_y = atlas_form.cleaned_data['pos_y']
+            pos_z = atlas_form.cleaned_data['pos_z']
+            context_dict['pos_x'] = pos_x
+            context_dict['pos_y'] = pos_y
+            context_dict['pos_z'] = pos_z
+            context_dict['size_x'] = sizes['X']
+            context_dict['size_y'] = sizes['Y']
+            context_dict['size_z'] = sizes['Z']
+
+            pos_x = int(pos_x * selected_atlas.x_size / float(sizes['X']))
+            pos_y = int(pos_y * selected_atlas.y_size / float(sizes['Y']))
+            pos_z = int(pos_z * selected_atlas.z_size / float(sizes['Z']))
+
+            front_atlas = selected_atlas.get_image(selected_atlas.experiment.front_axis, pos_z, 0)
+            side_atlas = selected_atlas.get_image(selected_atlas.experiment.side_axis, pos_x, 0)
+            top_atlas = selected_atlas.get_image(selected_atlas.experiment.top_axis, pos_y, 0)
+
+            context_dict['front_atlas'] = '/' + front_atlas
+            context_dict['top_atlas'] = '/' + top_atlas
+            context_dict['side_atlas'] = '/' + side_atlas
+
+    else:
+        atlasID = request.GET.get('atlas')
+        for atlas in atlas_list:
+            if atlas.id == int(atlasID):
+                selected_atlas = atlas
+                context_dict['selected_atlas'] = selected_atlas
+                break
+        context_dict['pos_x'] = int(sizes['X']/2.)
+        context_dict['pos_y'] = int(sizes['X']/2.)
+        context_dict['pos_z'] = int(sizes['X']/2.)
+        context_dict['size_x'] = sizes['X']
+        context_dict['size_y'] = sizes['Y']
+        context_dict['size_z'] = sizes['Z']
+        pos_x = int(selected_atlas.x_size/2.)
+        pos_y = int(selected_atlas.y_size / 2.)
+        pos_z = int(selected_atlas.z_size / 2.)
+
+        front_atlas = selected_atlas.get_image(selected_atlas.experiment.front_axis, pos_z, 0)
+        side_atlas = selected_atlas.get_image(selected_atlas.experiment.side_axis, pos_x, 0)
+        top_atlas = selected_atlas.get_image(selected_atlas.experiment.top_axis, pos_y, 0)
+
+        context_dict['front_atlas'] = '/' + front_atlas
+        context_dict['top_atlas'] = '/' + top_atlas
+        context_dict['side_atlas'] = '/' + side_atlas
+
+    return render(request, 'tfgWeb/atlas.html', context=context_dict)
+
 
 @login_required
 def user_logout(request):

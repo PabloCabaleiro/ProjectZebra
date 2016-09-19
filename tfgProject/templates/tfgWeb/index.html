@@ -22,7 +22,7 @@
             {% for atlas in atlas_list %}
                 <h2>{{atlas.name}}</h2>
                 <a class="btn-link" href="/info/?experiment={{ atlas_experiment.id }}">About</a>
-                <a class="btn-link" href="/experiment/?atlas={{ atlas_experiment.id }}">Watch Atlas</a>
+                <a class="btn-link" href="/atlas/?atlas={{ atlas.id }}">Watch Atlas</a>
             {% endfor %}
         </div>
 <script>

@@ -13,7 +13,7 @@ class Experiment(models.Model):
     name = models.CharField(max_length=128)
     owner = models.ForeignKey(AUTH_USER_MODEL, null=True)
     is_atlas = models.BooleanField(default=False)
-    info = models.CharField(max_length=512, null=True)
+    info = models.CharField(max_length=2000, null=True)
     front_axis = models.CharField(max_length=1,default='Z')
     side_axis = models.CharField(max_length=1,default='X')
     top_axis = models.CharField(max_length=1,default='Y')

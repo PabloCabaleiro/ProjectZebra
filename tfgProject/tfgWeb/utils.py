@@ -318,6 +318,11 @@ def read_series(experiment, user, bf_reader, serieID=0, name=""):  # Reads a ser
                 elif axis[0] == 'Z':
                     image = PILImage.fromarray(matrix[:, :, pos, :, time].astype('uint8')).convert('RGBA')
 
+                if axis[0] == experiment.top_axis:
+                    image = image.rotate(180)
+                if axis[0] == experiment.side_axis:
+                    image = image.rotate(90)
+
                 path = config.IMAGES_PATH + str(user.id) + '/' + str(experiment.id) + '/' + name + '/' + axis[0] + '/'
 
                 if not os.path.exists(path):
@@ -413,15 +418,16 @@ def save_h5(filename, user, top_axis, side_axis, front_axis, is_atlas=False, nam
                 for axis in axis_list:
                     axis_model = atlas_model.add_axis(name=axis[0])
                     for pos in range(0, shape[axis[1]]):
-                        if axis[0] == experiment.top_axis:
+                        if axis[0] == 'Y':
                             image = PILImage.fromarray(atlas[:, pos, :].astype('uint8'))
-                        elif axis[0] == experiment.side_axis:
+                        elif axis[0] == 'X':
                             image = PILImage.fromarray(atlas[pos, :, :].astype('uint8'))
-                        elif axis[0] == experiment.front_axis:
+                        elif axis[0] == 'Z':
                             image = PILImage.fromarray(atlas[:, :, pos].astype('uint8'))
 
                         if axis[0]==experiment.top_axis:
                             image = image.rotate(180)
+
                         if is_atlas:
                             path = config.ATLAS_PATH + dataset_key + '/' + axis[0] + '/'
                         else:
