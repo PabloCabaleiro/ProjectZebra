@@ -22,7 +22,7 @@ def populate(filename, atlasname):
 
     admin = add_admin()
     print "Loading experiment..."
-    utils.save_lif(filename=filename,user=admin, top_axis='X',side_axis='Y',front_axis='Z')
+    utils.save_lif(filename=filename,user=admin, top_axis='Y',side_axis='X',front_axis='Z')
 
     print "Loading atlas..."
     utils.save_h5(filename=atlasname, user=admin, top_axis='X',side_axis='Y', front_axis='Z', is_atlas=True)

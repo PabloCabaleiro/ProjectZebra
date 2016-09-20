@@ -319,9 +319,9 @@ def read_series(experiment, user, bf_reader, serieID=0, name=""):  # Reads a ser
                     image = PILImage.fromarray(matrix[:, :, pos, :, time].astype('uint8')).convert('RGBA')
 
                 if axis[0] == experiment.top_axis:
-                    image = image.rotate(180)
-                if axis[0] == experiment.side_axis:
-                    image = image.rotate(90)
+                    image = image.rotate(270)
+                if axis[0] == experiment.front_axis:
+                    image = image.rotate(270)
 
                 path = config.IMAGES_PATH + str(user.id) + '/' + str(experiment.id) + '/' + name + '/' + axis[0] + '/'
 
